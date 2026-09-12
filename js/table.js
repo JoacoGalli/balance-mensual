@@ -69,14 +69,17 @@
       cfg.columns.forEach(function (col, colIndex) {
         var td = el("td", col.align === "left" ? "left" : "");
 
-        /* select de moneda */
-        if (col.type === "moneda") {
+        /* select: moneda (ARS/USD) u "opciones" con col.options = [[valor, texto], ...] */
+        if (col.type === "moneda" || col.type === "opciones") {
           var sel = document.createElement("select");
-          sel.className = "cell-input";
-          ["ARS", "USD"].forEach(function (m) {
+          sel.className = "cell-input" + (col.type === "opciones" ? " opciones" : "");
+          sel.setAttribute("aria-label", col.label);
+          var opciones = col.type === "moneda" ? [["ARS", "ARS"], ["USD", "USD"]] : col.options;
+          var actual = row[col.key] || opciones[0][0];
+          opciones.forEach(function (op) {
             var o = document.createElement("option");
-            o.value = m; o.textContent = m;
-            if ((row[col.key] || "ARS") === m) o.selected = true;
+            o.value = op[0]; o.textContent = op[1];
+            if (actual === op[0]) o.selected = true;
             sel.appendChild(o);
           });
           sel.addEventListener("change", function () {

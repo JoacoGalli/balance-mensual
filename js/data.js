@@ -86,15 +86,22 @@
   BM.seed = {
     version: 1,
     config: {
-      personas: { p1: "Ana", p2: "Martín" }
+      personas: { p1: "Ana", p2: "Martín" },
+      /* Reparto ideal de lo que entra cada mes. fuente: de qué lista sale el monto real */
+      presupuesto: [
+        { id: "pres-fijos", nombre: "Gastos fijos", pct: 60, fuente: "gastosFijos" },
+        { id: "pres-variables", nombre: "Gastos variables", pct: 15, fuente: "gastosVariables" },
+        { id: "pres-inversiones", nombre: "Inversiones", pct: 10, fuente: "inversiones" },
+        { id: "pres-ahorros", nombre: "Ahorros", pct: 15, fuente: "ahorros" }
+      ]
     },
     mesActivo: "2026-08",
     meses: {
       "2026-06": {
         id: "2026-06", dolar: 1410, balanceAnterior: 120000,
-        ingresos: [r({ fuente: "Sueldo", monto: 1800, moneda: "USD" }),
-                   r({ fuente: "Freelance", monto: 95000, moneda: "ARS" })],
-        ahorros: [], proyectos: [],
+        ingresos: [r({ fuente: "Sueldo", monto: 1800, moneda: "USD" })],
+        ahorros: [], inversiones: [],
+        proyectos: [{ id: uid(), nombre: "Estudio web", ingresos: [r({ desc: "Sitio para cliente", monto: 95000 })], gastos: [] }],
         gastosFijos: [r({ desc: "Alquiler", monto: 380000 }), r({ desc: "Monotributo", monto: 120000 }),
                       r({ desc: "Servicios", monto: 78000 })],
         gastosVariables: [r({ desc: "Supermercado", monto: 138000 }),
@@ -105,9 +112,9 @@
       },
       "2026-07": {
         id: "2026-07", dolar: 1480, balanceAnterior: 198000,
-        ingresos: [r({ fuente: "Sueldo", monto: 1800, moneda: "USD" }),
-                   r({ fuente: "Freelance", monto: 104000, moneda: "ARS" })],
-        ahorros: [], proyectos: [],
+        ingresos: [r({ fuente: "Sueldo", monto: 1800, moneda: "USD" })],
+        ahorros: [], inversiones: [],
+        proyectos: [{ id: uid(), nombre: "Estudio web", ingresos: [r({ desc: "Mantenimiento mensual", monto: 104000 })], gastos: [] }],
         gastosFijos: [r({ desc: "Alquiler", monto: 400000 }), r({ desc: "Monotributo", monto: 125000 }),
                       r({ desc: "Servicios", monto: 82000 })],
         gastosVariables: [r({ desc: "Supermercado", monto: 152000 }),
@@ -121,22 +128,26 @@
         dolar: 1526,
         balanceAnterior: 245300,
         ingresos: [
-          r({ fuente: "Sueldo", monto: 1800, moneda: "USD" }),
-          r({ fuente: "Freelance", monto: 112500, moneda: "ARS" })
+          r({ fuente: "Sueldo", monto: 1800, moneda: "USD" })
         ],
         ahorros: [
-          r({ desc: "Caja de ahorro en dólares", monto: 50000 })
+          r({ desc: "Caja de ahorro en dólares", monto: 250000 }),
+          r({ desc: "Fondo de emergencia", monto: 120000 })
+        ],
+        inversiones: [
+          r({ desc: "Plazo fijo", monto: 150000 }),
+          r({ desc: "Fondo común de inversión", monto: 80000 })
         ],
         proyectos: [
           {
-            id: uid(), nombre: "Tienda online",
-            ingresos: [r({ desc: "Ventas del mes", monto: 82000 })],
-            gastos: [r({ desc: "Hosting y dominio", monto: 8200 }), r({ desc: "Envíos", monto: 12400 })]
+            id: uid(), nombre: "Estudio web",
+            ingresos: [r({ desc: "Mantenimiento mensual", monto: 112500 }), r({ desc: "Landing para cliente nuevo", monto: 82000 })],
+            gastos: [r({ desc: "Hosting y dominio", monto: 8200 }), r({ desc: "Plantilla premium", monto: 12400 })]
           },
           {
-            id: uid(), nombre: "Clases particulares",
-            ingresos: [r({ desc: "Alumnos", monto: 48000 })],
-            gastos: [r({ desc: "Material", monto: 6000 })]
+            id: uid(), nombre: "Consultoría",
+            ingresos: [r({ desc: "Horas de asesoría", monto: 48000 })],
+            gastos: [r({ desc: "Licencia de software", monto: 6000 })]
           }
         ],
         gastosFijos: [

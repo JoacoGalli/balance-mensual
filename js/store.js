@@ -18,16 +18,29 @@
 
   /* ---------------- persistencia ---------------- */
 
+  /* Completa lo que les falta a datos guardados con versiones anteriores de la app */
+  function normalizar(st) {
+    st.config = st.config || {};
+    if (!st.config.personas) st.config.personas = { p1: "Persona 1", p2: "Persona 2" };
+    if (!Array.isArray(st.config.presupuesto)) {
+      st.config.presupuesto = JSON.parse(JSON.stringify(BM.seed.config.presupuesto));
+    }
+    Object.keys(st.meses).forEach(function (id) {
+      if (!Array.isArray(st.meses[id].inversiones)) st.meses[id].inversiones = [];
+    });
+    return st;
+  }
+
   function load() {
     var raw = null;
     try { raw = global.localStorage.getItem(KEY); } catch (e) { raw = null; }
     if (raw) {
       try {
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.meses) { state = parsed; return state; }
+        if (parsed && parsed.meses) { state = normalizar(parsed); return state; }
       } catch (e) { /* datos corruptos: caemos al seed */ }
     }
-    state = JSON.parse(JSON.stringify(BM.seed));
+    state = normalizar(JSON.parse(JSON.stringify(BM.seed)));
     return state;
   }
 
@@ -75,12 +88,14 @@
   }
 
   /* ---------------- CRUD de filas ----------------
-     listName: "ingresos" | "ahorros" | "gastosFijos" | "gastosVariables"
+     listName: "ingresos" | "ahorros" | "inversiones" | "gastosFijos" | "gastosVariables"
                | "tarjetaPesos" | "tarjetaDolares" | "alquiler"
      Para proyectos: proyectoId + "ingresos" | "gastos"
+     "presupuesto" no depende del mes: vive en config y vale para todos.
   ------------------------------------------------- */
 
   function getList(listName, proyectoId) {
+    if (listName === "presupuesto") return state.config.presupuesto;
     var mes = mesActual();
     if (proyectoId) {
       var p = (mes.proyectos || []).find(function (x) { return x.id === proyectoId; });
@@ -143,7 +158,7 @@
       id: id,
       dolar: base ? base.dolar : 1000,
       balanceAnterior: opciones.arrastrarBalance && base ? calc(base).balanceFinal : 0,
-      ingresos: [], ahorros: [], proyectos: [],
+      ingresos: [], ahorros: [], inversiones: [], proyectos: [],
       gastosFijos: [], gastosVariables: [],
       tarjetaPesos: [], tarjetaDolares: [], alquiler: []
     };
@@ -227,8 +242,30 @@
     var gananciaProyectos = proyectos.reduce(function (a, p) { return a + p.neto; }, 0);
 
     var totalAhorros = U.sum(mes.ahorros, "monto");
+    var totalInversiones = U.sum(mes.inversiones, "monto");
     var balanceDelMes = totalIngresos + gananciaProyectos - totalGastos;
     var balanceFinal = (Number(mes.balanceAnterior) || 0) + balanceDelMes;
+
+    /* Presupuesto: cada parte es un % de lo que entró en el mes (ingresos + proyectos).
+       Las partes de gastos son un tope (pasarse es malo); ahorro e inversión son una meta. */
+    var baseReparto = totalIngresos + gananciaProyectos;
+    var realPorFuente = {
+      gastosFijos: totalFijos, gastosVariables: totalVariables,
+      ahorros: totalAhorros, inversiones: totalInversiones
+    };
+    var presupuesto = ((state && state.config.presupuesto) || []).map(function (parte) {
+      var pct = Number(parte.pct) || 0;
+      var objetivo = baseReparto * pct / 100;
+      var real = realPorFuente[parte.fuente] || 0;
+      var tipo = parte.fuente === "ahorros" || parte.fuente === "inversiones" ? "meta" : "tope";
+      return {
+        id: parte.id, nombre: parte.nombre, fuente: parte.fuente, tipo: tipo,
+        pct: pct, objetivo: objetivo, real: real, diferencia: objetivo - real,
+        pctReal: baseReparto ? (real / baseReparto) * 100 : 0,
+        avance: objetivo ? real / objetivo : 0
+      };
+    });
+    var pctPresupuesto = presupuesto.reduce(function (a, p) { return a + p.pct; }, 0);
 
     return {
       dolar: dolar,
@@ -240,6 +277,10 @@
       proyectos: proyectos,
       gananciaProyectos: gananciaProyectos,
       totalAhorros: totalAhorros,
+      totalInversiones: totalInversiones,
+      baseReparto: baseReparto,
+      presupuesto: presupuesto,
+      pctPresupuesto: pctPresupuesto,
       balanceDelMes: balanceDelMes,
       balanceFinal: balanceFinal,
       tarjetaP1Pesos: tarjetaP1Pesos, tarjetaP2Pesos: tarjetaP2Pesos,
@@ -265,13 +306,13 @@
   function importJSON(texto) {
     var parsed = JSON.parse(texto);
     if (!parsed || !parsed.meses) throw new Error("El archivo no tiene el formato esperado");
-    state = parsed;
+    state = normalizar(parsed);
     if (!state.meses[state.mesActivo]) state.mesActivo = mesesOrdenados().pop();
     emit();
   }
 
   function resetear() {
-    state = JSON.parse(JSON.stringify(BM.seed));
+    state = normalizar(JSON.parse(JSON.stringify(BM.seed)));
     emit();
   }
 

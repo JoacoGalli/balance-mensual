@@ -12,6 +12,8 @@
     resumen: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>',
     ingresos: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17 L10 11 L14 15 L20 7"/><path d="M14 7 H20 V13"/></svg>',
     gastos: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7 L10 13 L14 9 L20 17"/><path d="M20 11 V17 H14"/></svg>',
+    freelance: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7 V5 a1.5 1.5 0 0 1 1.5 -1.5 h3 A1.5 1.5 0 0 1 15 5 V7"/><path d="M3 13 H21"/></svg>',
+    presupuesto: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 A9 9 0 1 0 21 12 H12 Z"/><path d="M15 3.5 A9 9 0 0 1 20.5 9 H15 Z"/></svg>',
     tarjetas: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10 H21.5"/><path d="M6 15 H10"/></svg>',
     balance: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 V22"/><path d="M5 6 H19"/><path d="M5 6 L2.5 12 A2.5 3 0 0 0 7.5 12 Z"/><path d="M19 6 L16.5 12 A2.5 3 0 0 0 21.5 12 Z"/></svg>',
     ajustes: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4L5.3 5.3"/></svg>'
@@ -19,12 +21,15 @@
 
   var VISTAS = [
     { id: "resumen",  label: "Resumen",  titulo: "Resumen",             sub: "La foto del mes: qué entró, qué salió y con cuánto cerrás." },
-    { id: "ingresos", label: "Ingresos", titulo: "Ingresos y proyectos", sub: "Sueldo, freelance y el balance propio de cada proyecto personal." },
+    { id: "ingresos", label: "Ingresos", titulo: "Ingresos",             sub: "Lo que cobrás en el mes, y lo que separás para ahorrar e invertir." },
+    { id: "freelance", label: "Freelance", titulo: "Freelance",          sub: "Cada proyecto con sus ingresos y sus gastos. Lo que ganás neto se suma al mes." },
     { id: "gastos",   label: "Gastos",   titulo: "Gastos",               sub: "Separados en fijos y variables para ver qué es negociable." },
+    { id: "presupuesto", label: "Presupuesto", titulo: "Presupuesto",   sub: "Qué parte de lo que entra va a cada cosa, y cómo vas este mes." },
     { id: "tarjetas", label: "Tarjetas", titulo: "Tarjetas",             sub: "Visa en pesos y en dólares, con el corte por persona y las cuotas." },
     { id: "balance",  label: "Balance",  titulo: "Alquiler y balance",   sub: "El reparto del alquiler y cómo cierra el mes." },
     { id: "ajustes",  label: "Ajustes",  titulo: "Ajustes",              sub: "Personas, meses y copia de seguridad de tus datos." }
   ];
+  function vista(id) { return VISTAS.find(function (v) { return v.id === id; }); }
 
   var vistaActiva = "resumen";
 
@@ -80,7 +85,7 @@
     var sidebar = h("aside", { class: "sidebar" }, [
       h("div", { class: "brand" }, [
         h("span", { class: "brand-mark" }),
-        h("div", {}, [h("h1", { text: "Balance" }), h("span", { text: "gastos y proyectos" })])
+        h("div", {}, [h("h1", { text: "Balance" }), h("span", { text: "tu plata, mes a mes" })])
       ]),
       h("div", { class: "month-picker" }, [
         h("select", { id: "month-select", "aria-label": "Mes" }),
@@ -95,7 +100,7 @@
 
     var main = h("main", { class: "content" }, [
       h("div", { class: "mobile-topbar" }, [
-        h("div", { class: "brand" }, [h("span", { class: "brand-mark" }), h("h1", { text: "Balance", style: "font-size:1.05rem" })]),
+        h("div", { class: "brand" }, [h("span", { class: "brand-mark" }), h("h1", { text: "Balance", style: "font-size:1.1rem" })]),
         h("select", { id: "month-select-mobile", "aria-label": "Mes" })
       ])
     ]);
@@ -162,9 +167,17 @@
   }
 
   function irA(id) {
+    if (!vista(id)) id = "resumen";
     vistaActiva = id;
+    /* la vista queda en la URL: sirve para recargar, favoritos y el botón atrás */
+    if (location.hash !== "#" + id) {
+      try { history.replaceState(null, "", "#" + id); } catch (e) { /* file:// en algunos navegadores */ }
+    }
     document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + id); });
     document.querySelectorAll(".nav-item").forEach(function (b) { b.classList.toggle("active", b.dataset.view === id); });
+    /* en el celu la barra de abajo scrollea: que la vista activa quede a la vista */
+    var activoMobile = document.querySelector("#nav-mobile .nav-item.active");
+    if (activoMobile && activoMobile.scrollIntoView) activoMobile.scrollIntoView({ block: "nearest", inline: "nearest" });
     global.scrollTo(0, 0);
   }
 
@@ -182,26 +195,35 @@
   function renderResumen() {
     var cont = document.getElementById("view-resumen");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(VISTAS[0]));
+    cont.appendChild(encabezado(vista("resumen")));
 
     var c = store.calc();
     var mes = store.mesActual();
 
-    function tile(cls, label, valor, sub) {
-      return h("div", { class: "tile " + cls }, [
-        h("div", { class: "label", text: label }),
-        h("div", { class: "value num", text: valor }),
-        h("div", { class: "sub", text: sub })
+    /* --- hero: cómo cierra el mes, y la cuenta que lo explica --- */
+    var aFavor = c.balanceDelMes >= 0;
+    var nombreMes = U.MESES[parseInt(mes.id.split("-")[1], 10) - 1];
+
+    function termino(op, label, valor, cls) {
+      return h("div", { class: "eq-term" + (cls ? " " + cls : "") }, [
+        h("span", { class: "eq-op", text: op || "", "aria-hidden": "true" }),
+        h("div", { class: "eq-body" }, [
+          h("span", { class: "eq-label", text: label }),
+          h("span", { class: "eq-valor num", text: valor })
+        ])
       ]);
     }
 
-    cont.appendChild(h("div", { class: "tiles" }, [
-      tile("accent", "Ingresos", U.fmtARS(c.totalIngresos), "sueldo + freelance"),
-      tile("", "Gastos", U.fmtARS(c.totalGastos), c.pctFijos + "% son fijos"),
-      tile(c.gananciaProyectos >= 0 ? "positive" : "negative", "Proyectos", U.fmtARS(c.gananciaProyectos),
-           c.proyectos.length + (c.proyectos.length === 1 ? " proyecto activo" : " proyectos activos")),
-      tile(c.balanceDelMes >= 0 ? "positive" : "negative", "Balance del mes", U.fmtARS(c.balanceDelMes),
-           "acumulado: " + U.fmtARS(c.balanceFinal))
+    cont.appendChild(h("section", { class: "hero" + (aFavor ? "" : " rojo"), "aria-label": "Cierre del mes" }, [
+      h("p", { class: "hero-estado", text: nombreMes + (aFavor ? " cierra a favor" : " cierra en rojo") }),
+      h("p", { class: "hero-monto num", text: U.fmtARS(c.balanceDelMes) }),
+      h("p", { class: "hero-acumulado", html: "Con lo que venías arrastrando, quedás en <strong>" + U.fmtARS(c.balanceFinal) + "</strong>." }),
+      h("div", { class: "ecuacion" }, [
+        termino(null, "Ingresos", U.fmtARS(c.totalIngresos)),
+        termino("+", "Freelance", U.fmtARS(c.gananciaProyectos)),
+        termino("−", "Gastos", U.fmtARS(c.totalGastos)),
+        termino("=", "Balance del mes", U.fmtARS(c.balanceDelMes), "resultado")
+      ])
     ]));
 
     /* --- gráfico de balance --- */
@@ -210,18 +232,18 @@
     pChart.appendChild(chartBox);
     pChart.appendChild(h("div", { class: "chart-caption" }, [
       h("span", { html: '<span class="dot" style="background:var(--positive)"></span>Mes a favor' }),
-      h("span", { html: '<span class="dot" style="background:var(--negative)"></span>Mes en contra' })
+      h("span", { html: '<span class="dot" style="background:var(--negative)"></span>Mes en rojo' })
     ]));
 
     /* --- fijos vs variables --- */
     var pSplit = panel("Fijos vs. variables", h("span", { class: "count", text: c.pctFijos + "% fijos" }));
     pSplit.appendChild(h("div", { class: "split-bar" }, [
-      h("div", { style: "width:" + c.pctFijos + "%;background:var(--accent)" }),
-      h("div", { style: "width:" + (100 - c.pctFijos) + "%;background:var(--warning)" })
+      h("div", { style: "width:" + c.pctFijos + "%;background:var(--ink)" }),
+      h("div", { style: "width:" + (100 - c.pctFijos) + "%;background:var(--brand)" })
     ]));
     pSplit.appendChild(h("div", { class: "split-legend" }, [
-      h("span", { html: '<span class="dot" style="background:var(--accent)"></span>Fijos ' + U.fmtARS(c.totalFijos) }),
-      h("span", { html: '<span class="dot" style="background:var(--warning)"></span>Variables ' + U.fmtARS(c.totalVariables) })
+      h("span", { html: '<span class="dot" style="background:var(--ink)"></span>Fijos ' + U.fmtARS(c.totalFijos) }),
+      h("span", { html: '<span class="dot" style="background:var(--brand)"></span>Variables ' + U.fmtARS(c.totalVariables) })
     ]));
 
     /* --- cuotas --- */
@@ -244,9 +266,9 @@
     }
 
     /* --- proyectos --- */
-    var pProy = panel("Proyectos personales");
+    var pProy = panel("Freelance por proyecto");
     if (!c.proyectos.length) {
-      pProy.appendChild(h("p", { class: "panel-note", text: "Sin proyectos cargados este mes." }));
+      pProy.appendChild(h("p", { class: "panel-note", text: "Sin proyectos freelance este mes." }));
     } else {
       c.proyectos.forEach(function (p) {
         pProy.appendChild(h("div", { class: "line-item" }, [
@@ -290,19 +312,19 @@
     svg += '<line x1="' + padL + '" y1="' + zeroY + '" x2="' + (w - padR) + '" y2="' + zeroY + '" stroke="var(--border-strong)" stroke-width="1"/>';
 
     datos.forEach(function (d, i) {
-      var x = padL + i * bw + bw * 0.24;
-      var ancho = bw * 0.52;
+      var ancho = Math.min(bw * 0.4, 56);
+      var x = padL + i * bw + (bw - ancho) / 2;
       var alto = Math.abs(d.valor) * escala;
       var y = d.valor >= 0 ? zeroY - alto : zeroY;
       var color = d.valor >= 0 ? "var(--positive)" : "var(--negative)";
       svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + ancho.toFixed(1) +
-             '" height="' + Math.max(alto, 2).toFixed(1) + '" rx="3" fill="' + color + '"/>';
+             '" height="' + Math.max(alto, 2).toFixed(1) + '" rx="5" fill="' + color + '"/>';
       var etiquetaY = d.valor >= 0 ? y - 5 : y + Math.max(alto, 2) + 11;
       var texto = Math.abs(d.valor) >= 1000 ? Math.round(d.valor / 1000) + "k" : Math.round(d.valor);
       svg += '<text x="' + (x + ancho / 2).toFixed(1) + '" y="' + etiquetaY.toFixed(1) +
-             '" text-anchor="middle" font-size="9" font-family="JetBrains Mono, monospace" fill="var(--ink-2)">' + texto + '</text>';
+             '" text-anchor="middle" font-size="10" font-weight="600" font-family="Archivo, sans-serif" fill="var(--ink-2)">' + texto + '</text>';
       svg += '<text x="' + (x + ancho / 2).toFixed(1) + '" y="' + (hgt - 5) +
-             '" text-anchor="middle" font-size="9.5" font-family="Public Sans, sans-serif" fill="var(--ink-3)">' + d.label + '</text>';
+             '" text-anchor="middle" font-size="10" font-family="Archivo, sans-serif" fill="var(--ink-3)">' + d.label + '</text>';
     });
     svg += "</svg>";
     box.innerHTML = svg;
@@ -314,7 +336,7 @@
   function renderIngresos() {
     var cont = document.getElementById("view-ingresos");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(VISTAS[1]));
+    cont.appendChild(encabezado(vista("ingresos")));
 
     /* ingresos */
     var pIng = panel("Ingresos del mes");
@@ -356,23 +378,52 @@
       totalFn: function () { return U.fmtARS(store.calc().totalAhorros); }
     });
 
-    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pIng]), h("div", {}, [pAho])]));
-
-    /* proyectos */
-    var btnNuevo = h("button", {
-      class: "btn", text: "+ Nuevo proyecto",
-      onclick: function () { store.addProyecto("Proyecto nuevo"); renderIngresos(); BM.refreshDerived(); }
+    /* inversiones */
+    var pInv = panel("Inversiones");
+    var mountInv = h("div");
+    pInv.appendChild(mountInv);
+    BM.table.render(mountInv, {
+      list: "inversiones",
+      columns: [
+        { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Plazo fijo, fondo, acciones…" },
+        { key: "monto", label: "Monto", type: "money" }
+      ],
+      template: { desc: "", monto: 0 },
+      addLabel: "+ Agregar inversión",
+      emptyText: "Sin inversiones cargadas este mes.",
+      totalId: "total-inversiones", totalLabel: "Total invertido",
+      totalFn: function () { return U.fmtARS(store.calc().totalInversiones); }
     });
-    var pProy = panel("Proyectos personales", btnNuevo);
-    pProy.appendChild(h("p", { class: "panel-note", text: "Cada proyecto lleva sus propios ingresos y gastos. La ganancia neta se suma al balance del mes." }));
 
+    pIng.appendChild(h("p", { class: "panel-note", style: "margin:14px 0 0",
+      text: "Lo que cobrás por proyectos freelance se carga aparte, en Freelance." }));
+
+    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pIng]), h("div", {}, [pAho, pInv])]));
+  }
+
+  /* =========================================================
+     VISTA: FREELANCE (proyectos, cada uno con ingresos y gastos)
+     ========================================================= */
+  function renderFreelance() {
+    var cont = document.getElementById("view-freelance");
+    cont.innerHTML = "";
+
+    var btnNuevo = h("button", {
+      class: "btn primary", text: "+ Nuevo proyecto",
+      onclick: function () { store.addProyecto("Proyecto nuevo"); renderFreelance(); BM.refreshDerived(); }
+    });
+    cont.appendChild(encabezado(vista("freelance"), btnNuevo));
+
+    var pProy = h("div");
     var proyectos = store.mesActual().proyectos || [];
     if (!proyectos.length) {
-      pProy.appendChild(h("p", { class: "panel-note", text: "Todavía no agregaste ningún proyecto." }));
+      var vacio = panel("Todavía no hay proyectos este mes");
+      vacio.appendChild(h("p", { class: "panel-note", text: "Creá uno por cliente o por trabajo, y cargale lo que cobraste y lo que gastaste para hacerlo." }));
+      pProy.appendChild(vacio);
     }
 
     proyectos.forEach(function (p) {
-      var card = h("div", { class: "project-card" });
+      var card = h("div", { class: "project-card panel" });
 
       var inputNombre = h("input", { type: "text", value: p.nombre, "aria-label": "Nombre del proyecto" });
       inputNombre.addEventListener("input", function () { store.updateProyecto(p.id, inputNombre.value); BM.refreshDerived(); });
@@ -389,9 +440,9 @@
         onclick: function () {
           var copia = JSON.parse(JSON.stringify(p));
           store.deleteProyecto(p.id);
-          renderIngresos(); BM.refreshDerived();
+          renderFreelance(); BM.refreshDerived();
           toast("Proyecto borrado", "Deshacer", function () {
-            store.mesActual().proyectos.push(copia); store.emit(); renderIngresos(); BM.refreshDerived();
+            store.mesActual().proyectos.push(copia); store.emit(); renderFreelance(); BM.refreshDerived();
           });
         }
       });
@@ -440,7 +491,10 @@
       var totalProy = h("span", { class: "num", dataset: { calc: "total-proyectos" } });
       BM.calcs["total-proyectos"] = function () { return U.fmtARS(store.calc().gananciaProyectos); };
       totalProy.textContent = BM.calcs["total-proyectos"]();
-      pProy.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Ganancia neta de proyectos" }), totalProy]));
+      var pTotal = h("div", { class: "panel" }, [
+        h("div", { class: "total-row freelance-total" }, [h("span", { text: "Ganancia neta de freelance" }), totalProy])
+      ]);
+      pProy.appendChild(pTotal);
     }
 
     cont.appendChild(pProy);
@@ -454,7 +508,7 @@
   function renderGastos() {
     var cont = document.getElementById("view-gastos");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(VISTAS[2]));
+    cont.appendChild(encabezado(vista("gastos")));
 
     var tabs = h("div", { class: "tabs" });
     [["gastosFijos", "Fijos"], ["gastosVariables", "Variables"]].forEach(function (t) {
@@ -502,6 +556,84 @@
   }
 
   /* =========================================================
+     VISTA: PRESUPUESTO
+     ========================================================= */
+  var FUENTES = [
+    ["gastosFijos", "Fijos"], ["gastosVariables", "Variables"],
+    ["inversiones", "Inversiones"], ["ahorros", "Ahorros"]
+  ];
+
+  function renderPresupuesto() {
+    var cont = document.getElementById("view-presupuesto");
+    cont.innerHTML = "";
+    cont.appendChild(encabezado(vista("presupuesto")));
+
+    var pComo = panel("Cómo vas este mes");
+    pComo.appendChild(h("div", { id: "presupuesto-barras" }));
+
+    var pPlan = panel("Tu reparto");
+    pPlan.appendChild(h("p", { class: "panel-note",
+      text: "Poné qué porcentaje de lo que entra va a cada parte y de dónde sale lo real. Vale para todos los meses." }));
+    var mount = h("div");
+    pPlan.appendChild(mount);
+    BM.table.render(mount, {
+      list: "presupuesto",
+      columns: [
+        { key: "nombre", label: "Parte", type: "text", align: "left", placeholder: "Nombre" },
+        { key: "pct", label: "%", type: "pct", width: "70px" },
+        { key: "fuente", label: "Se mide con", type: "opciones", options: FUENTES }
+      ],
+      template: { nombre: "", pct: 0, fuente: "gastosVariables" },
+      addLabel: "+ Agregar parte",
+      emptyText: "Sin partes. Agregá la primera.",
+      totalId: "total-presupuesto", totalLabel: "Total",
+      totalFn: function () { return U.fmtNum(store.calc().pctPresupuesto, 0) + "%"; }
+    });
+
+    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pComo]), h("div", {}, [pPlan])]));
+    dibujarPresupuesto();
+  }
+
+  /* Se redibuja entero en cada cambio: no tiene inputs, así que no se pierde el foco */
+  function dibujarPresupuesto() {
+    var box = document.getElementById("presupuesto-barras");
+    if (!box) return;
+    var c = store.calc();
+    box.innerHTML = "";
+
+    box.appendChild(h("p", { class: "panel-note", html: "Sobre <strong class=\"num\">" + U.fmtARS(c.baseReparto) +
+      "</strong> que entraron este mes, sumando ingresos y freelance." }));
+    if (c.pctPresupuesto !== 100) {
+      box.appendChild(h("p", { class: "aviso", text: "Tu reparto suma " + U.fmtNum(c.pctPresupuesto, 0) +
+        "%. Ajustá los porcentajes para que den 100%." }));
+    }
+
+    c.presupuesto.forEach(function (p) {
+      var pasado = p.tipo === "tope" && p.diferencia < 0;
+      var cumplida = p.tipo === "meta" && p.diferencia <= 0;
+      var estado;
+      if (p.tipo === "tope") estado = pasado ? "Te pasaste " + U.fmtARS(-p.diferencia) : "Te quedan " + U.fmtARS(p.diferencia);
+      else estado = cumplida ? "Meta cumplida" : "Te faltan " + U.fmtARS(p.diferencia);
+
+      var ancho = Math.max(0, Math.min(p.avance, 1)) * 100;
+      box.appendChild(h("div", { class: "parte" + (pasado ? " pasado" : "") + (cumplida ? " cumplida" : "") + " " + p.tipo }, [
+        h("div", { class: "parte-head" }, [
+          h("span", { class: "parte-nombre", text: p.nombre || "Sin nombre" }),
+          h("span", { class: "parte-pct num", text: U.fmtNum(p.pctReal, 0) + "% de " + U.fmtNum(p.pct, 0) + "%" })
+        ]),
+        h("div", { class: "parte-barra", role: "img",
+          "aria-label": p.nombre + ": " + U.fmtARS(p.real) + " de " + U.fmtARS(p.objetivo) }, [
+          h("div", { class: "parte-fill", style: "width:" + ancho.toFixed(1) + "%" })
+        ]),
+        h("div", { class: "parte-foot" }, [
+          h("span", { class: "num", text: U.fmtARS(p.real) + " de " + U.fmtARS(p.objetivo) }),
+          h("span", { class: "parte-estado", text: estado })
+        ])
+      ]));
+    });
+  }
+
+  /* =========================================================
      VISTA: TARJETAS
      ========================================================= */
   var tabTarjeta = "tarjetaPesos";
@@ -509,7 +641,7 @@
   function renderTarjetas() {
     var cont = document.getElementById("view-tarjetas");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(VISTAS[3]));
+    cont.appendChild(encabezado(vista("tarjetas")));
 
     var tabs = h("div", { class: "tabs" });
     [["tarjetaPesos", "Pesos"], ["tarjetaDolares", "Dólares"]].forEach(function (t) {
@@ -522,7 +654,7 @@
 
     var esPesos = tabTarjeta === "tarjetaPesos";
     var per = store.personas();
-    var p = panel("Visa · " + (esPesos ? "Pesos" : "Dólares"));
+    var p = panel(esPesos ? "Visa en pesos" : "Visa en dólares");
     p.appendChild(h("p", { class: "panel-note", text: "Cargá cada consumo con el monto de cada uno. En “Cuota” escribí por ejemplo 2/6." }));
 
     var mount = h("div");
@@ -567,7 +699,7 @@
   function renderBalance() {
     var cont = document.getElementById("view-balance");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(VISTAS[4]));
+    cont.appendChild(encabezado(vista("balance")));
 
     var pAlq = panel("Alquiler compartido");
     var mount = h("div");
@@ -603,7 +735,7 @@
     BM.calcs["b-mes"] = function () { return U.fmtARS(store.calc().balanceDelMes); };
     BM.calcs["b-final"] = function () { return U.fmtARS(store.calc().balanceFinal); };
 
-    pCierre.appendChild(h("div", { class: "line-item" }, [h("span", { text: "Ingresos + proyectos" }),
+    pCierre.appendChild(h("div", { class: "line-item" }, [h("span", { text: "Ingresos + freelance" }),
       h("span", { class: "num amt", dataset: { calc: "b-ingresos" } })]));
     pCierre.appendChild(h("div", { class: "line-item" }, [h("span", { text: "Gastos totales" }),
       h("span", { class: "num amt", style: "color:var(--negative)", dataset: { calc: "b-gastos" } })]));
@@ -621,7 +753,7 @@
   function renderAjustes() {
     var cont = document.getElementById("view-ajustes");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(VISTAS[5]));
+    cont.appendChild(encabezado(vista("ajustes")));
 
     var per = store.personas();
 
@@ -770,24 +902,32 @@
       if (inp._compute && inp._row) inp.value = inp._compute(inp._row);
     });
     if (vistaActiva === "resumen") renderResumen();
+    if (vistaActiva === "presupuesto") dibujarPresupuesto();
   };
 
   function renderTodo() {
     sincronizarSelects();
     renderResumen();
     renderIngresos();
+    renderFreelance();
     renderGastos();
+    renderPresupuesto();
     renderTarjetas();
     renderBalance();
     renderAjustes();
+    var cantMeses = store.mesesOrdenados().length;
     document.getElementById("sidebar-foot").textContent =
-      "Guardado en este dispositivo · " + store.mesesOrdenados().length + " meses cargados";
+      cantMeses + (cantMeses === 1 ? " mes cargado" : " meses cargados") + ", guardados en este dispositivo.";
     irA(vistaActiva);
+    /* los totales con data-calc nacen vacíos: se llenan acá y en cada cambio */
+    BM.refreshDerived();
   }
 
   /* ---------------- arranque ---------------- */
   function iniciar() {
     store.load();
+    var desdeUrl = location.hash.slice(1);
+    if (vista(desdeUrl)) vistaActiva = desdeUrl;
     construirShell();
     renderTodo();
   }

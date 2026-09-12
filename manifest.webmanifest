@@ -1,13 +1,13 @@
 {
   "name": "Balance Mensual",
   "short_name": "Balance",
-  "description": "Gastos, ingresos y proyectos personales, mes a mes.",
+  "description": "Gastos, ingresos, freelance y presupuesto, mes a mes.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#F6F3EC",
-  "theme_color": "#1F6F5C",
+  "background_color": "#F7F4F2",
+  "theme_color": "#2B0F0C",
   "lang": "es-AR",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
