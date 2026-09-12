@@ -74,7 +74,8 @@
           var sel = document.createElement("select");
           sel.className = "cell-input" + (col.type === "opciones" ? " opciones" : "");
           sel.setAttribute("aria-label", col.label);
-          var opciones = col.type === "moneda" ? [["ARS", "ARS"], ["USD", "USD"]] : col.options;
+          var opciones = col.type === "moneda" ? [["ARS", "ARS"], ["USD", "USD"]]
+            : (typeof col.options === "function" ? col.options() : col.options);
           var actual = row[col.key] || opciones[0][0];
           opciones.forEach(function (op) {
             var o = document.createElement("option");
@@ -87,6 +88,24 @@
             BM.refreshDerived();
           });
           td.appendChild(sel);
+          tr.appendChild(td);
+          return;
+        }
+
+        /* tilde (ej. consumo fijo de tarjeta) */
+        if (col.type === "check") {
+          var chk = document.createElement("input");
+          chk.type = "checkbox";
+          chk.className = "cell-check";
+          chk.checked = !!row[col.key];
+          chk.setAttribute("aria-label", col.label + (row.desc ? ": " + row.desc : ""));
+          if (col.title) chk.title = col.title;
+          chk.addEventListener("change", function () {
+            store.updateRow(cfg.list, row.id, col.key, chk.checked, cfg.proyectoId);
+            BM.refreshDerived();
+          });
+          td.className = "col-check";
+          td.appendChild(chk);
           tr.appendChild(td);
           return;
         }
@@ -164,7 +183,7 @@
 
         if (esAuto) {
           var badge = el("span", "badge auto", "auto");
-          badge.title = "Se calcula solo desde la sección Tarjetas";
+          badge.title = "Se calcula solo desde la sección Tarjetas: tu parte de los consumos";
           badge.style.marginLeft = "6px";
           td.appendChild(badge);
         }

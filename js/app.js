@@ -25,7 +25,7 @@
     { id: "freelance", label: "Freelance", titulo: "Freelance",          sub: "Cada proyecto con sus ingresos y sus gastos. Lo que ganás neto se suma al mes." },
     { id: "gastos",   label: "Gastos",   titulo: "Gastos",               sub: "Separados en fijos y variables para ver qué es negociable." },
     { id: "presupuesto", label: "Presupuesto", titulo: "Presupuesto",   sub: "Qué parte de lo que entra va a cada cosa, y cómo vas este mes." },
-    { id: "tarjetas", label: "Tarjetas", titulo: "Tarjetas",             sub: "Visa en pesos y en dólares, con el corte por persona y las cuotas." },
+    { id: "tarjetas", label: "Tarjetas", titulo: "Tarjetas",             sub: "Tus tarjetas en pesos y en dólares, con el corte por persona, las cuotas y lo fijo." },
     { id: "balance",  label: "Balance",  titulo: "Alquiler y balance",   sub: "El reparto del alquiler y cómo cierra el mes." },
     { id: "ajustes",  label: "Ajustes",  titulo: "Ajustes",              sub: "Personas, meses y copia de seguridad de tus datos." }
   ];
@@ -95,13 +95,19 @@
         ])
       ]),
       h("nav", { class: "primary-nav", id: "nav-desktop" }),
-      h("div", { class: "sidebar-foot", id: "sidebar-foot" })
+      h("div", { class: "sidebar-foot" }, [
+        h("div", { class: "sync", id: "sync-desktop", role: "status" }),
+        h("div", { id: "sidebar-foot" })
+      ])
     ]);
 
     var main = h("main", { class: "content" }, [
       h("div", { class: "mobile-topbar" }, [
         h("div", { class: "brand" }, [h("span", { class: "brand-mark" }), h("h1", { text: "Balance", style: "font-size:1.1rem" })]),
-        h("select", { id: "month-select-mobile", "aria-label": "Mes" })
+        h("div", { class: "mobile-topbar-der" }, [
+          h("span", { class: "sync sync-punto", id: "sync-mobile", role: "status" }),
+          h("select", { id: "month-select-mobile", "aria-label": "Mes" })
+        ])
       ])
     ]);
 
@@ -369,12 +375,13 @@
       list: "ahorros",
       columns: [
         { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "A dónde va" },
-        { key: "monto", label: "Monto", type: "money" }
+        { key: "monto", label: "Monto", type: "money" },
+        { key: "moneda", label: "Moneda", type: "moneda", width: "86px" }
       ],
-      template: { desc: "", monto: 0 },
+      template: { desc: "", monto: 0, moneda: "ARS" },
       addLabel: "+ Agregar ahorro",
       emptyText: "Sin ahorros cargados este mes.",
-      totalId: "total-ahorros", totalLabel: "Total ahorrado",
+      totalId: "total-ahorros", totalLabel: "Total en pesos",
       totalFn: function () { return U.fmtARS(store.calc().totalAhorros); }
     });
 
@@ -386,12 +393,13 @@
       list: "inversiones",
       columns: [
         { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Plazo fijo, fondo, acciones…" },
-        { key: "monto", label: "Monto", type: "money" }
+        { key: "monto", label: "Monto", type: "money" },
+        { key: "moneda", label: "Moneda", type: "moneda", width: "86px" }
       ],
-      template: { desc: "", monto: 0 },
+      template: { desc: "", monto: 0, moneda: "ARS" },
       addLabel: "+ Agregar inversión",
       emptyText: "Sin inversiones cargadas este mes.",
-      totalId: "total-inversiones", totalLabel: "Total invertido",
+      totalId: "total-inversiones", totalLabel: "Total en pesos",
       totalFn: function () { return U.fmtARS(store.calc().totalInversiones); }
     });
 
@@ -654,20 +662,29 @@
 
     var esPesos = tabTarjeta === "tarjetaPesos";
     var per = store.personas();
-    var p = panel(esPesos ? "Visa en pesos" : "Visa en dólares");
-    p.appendChild(h("p", { class: "panel-note", text: "Cargá cada consumo con el monto de cada uno. En “Cuota” escribí por ejemplo 2/6." }));
+    var tarjetas = store.getState().config.tarjetas;
+    var p = panel(esPesos ? "Consumos en pesos" : "Consumos en dólares");
+    p.appendChild(h("p", { class: "panel-note", text: "Cargá cada consumo con el monto de cada uno. En “Cuota” escribí por ejemplo 2/6. " +
+      "Tildá “Fijo” en lo que se repite todos los meses: al crear el mes siguiente se copia solo, igual que las cuotas." }));
+
+    var columnas = [{ key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Consumo" }];
+    if (tarjetas.length > 1) {
+      columnas.push({ key: "tarjeta", label: "Tarjeta", type: "opciones",
+        options: function () { return store.getState().config.tarjetas.map(function (t) { return [t.id, t.nombre || "Sin nombre"]; }); } });
+    }
+    columnas.push(
+      { key: "p1", label: per.p1, type: esPesos ? "money" : "usd" },
+      { key: "p2", label: per.p2, type: esPesos ? "money" : "usd" },
+      { key: "cuota", label: "Cuota", type: "cuota", placeholder: "—", width: "78px" },
+      { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" }
+    );
 
     var mount = h("div");
     p.appendChild(mount);
     BM.table.render(mount, {
       list: tabTarjeta,
-      columns: [
-        { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Consumo" },
-        { key: "p1", label: per.p1, type: esPesos ? "money" : "usd" },
-        { key: "p2", label: per.p2, type: esPesos ? "money" : "usd" },
-        { key: "cuota", label: "Cuota", type: "cuota", placeholder: "—", width: "78px" }
-      ],
-      template: { desc: "", p1: 0, p2: 0, cuota: "" },
+      columns: columnas,
+      template: { desc: "", tarjeta: tarjetas[0] ? tarjetas[0].id : "", p1: 0, p2: 0, cuota: "", fijo: false },
       addLabel: "+ Agregar consumo",
       emptyText: "Sin consumos cargados.",
       totalId: "total-" + tabTarjeta, totalLabel: "Total",
@@ -683,14 +700,28 @@
     BM.calcs["tar-p1"] = function () { var c = store.calc(); return fmt(esPesos ? c.tarjetaP1Pesos : c.tarjetaP1Usd); };
     BM.calcs["tar-p2"] = function () { var c = store.calc(); return fmt(esPesos ? c.tarjetaP2Pesos : c.tarjetaP2Usd); };
     BM.calcs["tar-total"] = function () { var c = store.calc(); return fmt(esPesos ? c.totalTarjetaPesos : c.totalTarjetaDolares); };
-    pTot.appendChild(h("div", { class: "line-item" }, [h("span", { text: per.p1 }), h("span", { class: "num amt", dataset: { calc: "tar-p1" } })]));
+    pTot.appendChild(h("div", { class: "line-item" }, [h("span", { text: per.p1 + " (cuenta como gasto tuyo)" }), h("span", { class: "num amt", dataset: { calc: "tar-p1" } })]));
     pTot.appendChild(h("div", { class: "line-item" }, [h("span", { text: per.p2 }), h("span", { class: "num amt", dataset: { calc: "tar-p2" } })]));
-    pTot.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total del resumen" }), h("span", { class: "num", dataset: { calc: "tar-total" } })]));
+    pTot.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total de los consumos" }), h("span", { class: "num", dataset: { calc: "tar-total" } })]));
+
+    var pPorTarjeta = null;
+    if (tarjetas.length > 1) {
+      pPorTarjeta = panel("Por tarjeta");
+      tarjetas.forEach(function (t) {
+        var calcId = "tar-" + t.id;
+        BM.calcs[calcId] = function () {
+          var f = store.calc().porTarjeta.find(function (x) { return x.id === t.id; });
+          return fmt(f ? (esPesos ? f.pesos : f.usd) : 0);
+        };
+        pPorTarjeta.appendChild(h("div", { class: "line-item" }, [h("span", { text: t.nombre || "Sin nombre" }),
+          h("span", { class: "num amt", dataset: { calc: calcId } })]));
+      });
+    }
     if (!esPesos) {
       pTot.appendChild(h("p", { class: "panel-note", style: "margin-top:12px",
-        text: "En Gastos podés tener una fila “auto” que pesifica este total con el dólar del mes." }));
+        text: "En Gastos podés tener una fila “auto” que pesifica tu parte con el dólar del mes." }));
     }
-    cont.appendChild(pTot);
+    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pTot]), h("div", {}, [pPorTarjeta])]));
   }
 
   /* =========================================================
@@ -758,15 +789,28 @@
     var per = store.personas();
 
     var pPersonas = panel("Personas");
-    pPersonas.appendChild(h("p", { class: "panel-note", text: "Los nombres que se usan en las columnas de tarjetas." }));
+    pPersonas.appendChild(h("p", { class: "panel-note", text: "Los nombres de las columnas de tarjetas. La persona 1 sos vos: su parte de la tarjeta cuenta como gasto tuyo." }));
     ["p1", "p2"].forEach(function (slot, i) {
       var inp = h("input", { type: "text", value: per[slot], id: "persona-" + slot });
       inp.addEventListener("input", function () { store.setPersona(slot, inp.value); });
       inp.addEventListener("blur", function () { renderTarjetas(); });
       pPersonas.appendChild(h("div", { class: "field-row" }, [
-        h("label", { for: "persona-" + slot, text: "Persona " + (i + 1) }), inp
+        h("label", { for: "persona-" + slot, text: i === 0 ? "Persona 1 (vos)" : "Persona 2" }), inp
       ]));
     });
+
+    var pTarjetas = panel("Tarjetas");
+    pTarjetas.appendChild(h("p", { class: "panel-note", text: "Si tenés más de una, cada consumo dice de qué tarjeta es y ves el total de cada una." }));
+    var mountTar = h("div");
+    pTarjetas.appendChild(mountTar);
+    BM.table.render(mountTar, {
+      list: "tarjetas",
+      columns: [{ key: "nombre", label: "Nombre", type: "text", align: "left", placeholder: "Visa, Mastercard…" }],
+      template: { nombre: "" },
+      addLabel: "+ Agregar tarjeta",
+      emptyText: "Agregá al menos una tarjeta."
+    });
+    mountTar.addEventListener("focusout", function () { renderTarjetas(); });
 
     var pMeses = panel("Meses");
     pMeses.appendChild(h("p", { class: "panel-note",
@@ -785,9 +829,21 @@
       } })
     ]));
 
+    var usuario = BM.nube && BM.nube.usuario;
+    var pCuenta = null;
+    if (usuario) {
+      pCuenta = panel("Tu cuenta");
+      pCuenta.appendChild(h("p", { class: "panel-note",
+        text: "Entraste como " + (usuario.email || usuario.displayName) + ". Tus datos se guardan en la nube y los ves igual en la compu y en el celular." }));
+      pCuenta.appendChild(h("div", { class: "btn-row" }, [
+        h("button", { class: "btn", text: "Cerrar sesión", onclick: function () { BM.nube.salir(); } })
+      ]));
+    }
+
     var pDatos = panel("Tus datos");
-    pDatos.appendChild(h("p", { class: "panel-note",
-      text: "Por ahora todo se guarda en este dispositivo. Exportá el archivo para pasarlo a otro o para tener respaldo." }));
+    pDatos.appendChild(h("p", { class: "panel-note", text: usuario
+      ? "Bajá una copia para tener respaldo, o importá un archivo: reemplaza todos tus datos por los del archivo."
+      : "Todo se guarda en este dispositivo. Exportá el archivo para pasarlo a otro o para tener respaldo." }));
 
     var fileInput = h("input", { type: "file", accept: "application/json", style: "display:none", id: "import-file" });
     fileInput.addEventListener("change", function () {
@@ -795,7 +851,11 @@
       if (!f) return;
       var reader = new FileReader();
       reader.onload = function () {
-        try { store.importJSON(reader.result); renderTodo(); toast("Datos importados"); }
+        try {
+          var copia = JSON.stringify(store.getState());
+          store.importJSON(reader.result); renderTodo();
+          toast("Datos importados: " + store.mesesOrdenados().length + " meses", "Deshacer", function () { store.importJSON(copia); renderTodo(); });
+        }
         catch (err) { toast("No pude leer ese archivo"); }
       };
       reader.readAsText(f);
@@ -822,14 +882,14 @@
       } }),
       h("button", { class: "btn", text: "Importar archivo", onclick: function () { fileInput.click(); } }),
       fileInput,
-      h("button", { class: "btn ghost", text: "Volver a los datos de ejemplo", onclick: function () {
+      usuario ? null : h("button", { class: "btn ghost", text: "Volver a los datos de ejemplo", onclick: function () {
         var copia = JSON.stringify(store.getState());
         store.resetear(); renderTodo();
         toast("Volviste al ejemplo", "Deshacer", function () { store.importJSON(copia); renderTodo(); });
       } })
     ]));
 
-    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pPersonas, pDatos]), h("div", {}, [pMeses])]));
+    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pCuenta, pPersonas, pDatos]), h("div", {}, [pTarjetas, pMeses])]));
   }
 
   /* =========================================================
@@ -848,10 +908,12 @@
       h("div", { class: "field-row" }, [h("label", { for: "nm-anio", text: "Año" }), inpAnio]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-fijos", checked: "checked" }),
         h("span", { text: "Copiar gastos fijos y alquiler (con sus montos)" })]),
+      h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-tarjetas", checked: "checked" }),
+        h("span", { text: "Copiar de la tarjeta los consumos fijos y las cuotas que siguen (avanzando la cuota)" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-ingresos", checked: "checked" }),
         h("span", { text: "Copiar los ingresos" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-estructura", checked: "checked" }),
-        h("span", { text: "Copiar la estructura de variables, tarjetas y proyectos, en cero" })]),
+        h("span", { text: "Copiar la lista de gastos variables y proyectos, en cero" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-balance", checked: "checked" }),
         h("span", { text: "Arrastrar el balance final de este mes" })]),
       h("div", { class: "dialog-actions" }, [
@@ -860,6 +922,7 @@
           var id = U.monthId(parseInt(inpAnio.value, 10) || new Date().getFullYear(), parseInt(selMes.value, 10));
           store.crearMes(id, {
             copiarFijos: document.getElementById("nm-fijos").checked,
+            copiarTarjetas: document.getElementById("nm-tarjetas").checked,
             copiarIngresos: document.getElementById("nm-ingresos").checked,
             copiarEstructura: document.getElementById("nm-estructura").checked,
             arrastrarBalance: document.getElementById("nm-balance").checked
@@ -895,8 +958,7 @@
     var c = store.calc();
     document.querySelectorAll("input[data-auto]").forEach(function (inp) {
       var tipo = inp.dataset.auto;
-      var valor = tipo === "tarjetaPesos" ? c.totalTarjetaPesos : c.totalTarjetaDolares * c.dolar;
-      inp.value = U.fmtNum(valor, 0);
+      inp.value = U.fmtNum(c.montoDeFila({ auto: tipo }), 0);
     });
     document.querySelectorAll("input[data-calc-cell]").forEach(function (inp) {
       if (inp._compute && inp._row) inp.value = inp._compute(inp._row);
@@ -916,20 +978,120 @@
     renderBalance();
     renderAjustes();
     var cantMeses = store.mesesOrdenados().length;
+    var usuario = BM.nube && BM.nube.usuario;
     document.getElementById("sidebar-foot").textContent =
-      cantMeses + (cantMeses === 1 ? " mes cargado" : " meses cargados") + ", guardados en este dispositivo.";
+      cantMeses + (cantMeses === 1 ? " mes cargado" : " meses cargados") +
+      (usuario ? ". " + (usuario.email || "") : ", guardados en este dispositivo.");
+    pintarSync();
     irA(vistaActiva);
     /* los totales con data-calc nacen vacíos: se llenan acá y en cada cambio */
     BM.refreshDerived();
   }
 
+  /* ---------------- estado de guardado ---------------- */
+  var TEXTO_SYNC = {
+    local: "",
+    guardando: "Guardando…",
+    guardado: "Guardado en la nube",
+    "sin-conexion": "Sin conexión: se guarda cuando vuelva",
+    error: "No se pudo guardar"
+  };
+  function pintarSync() {
+    var sync = store.getSync();
+    ["sync-desktop", "sync-mobile"].forEach(function (id) {
+      var n = document.getElementById(id);
+      if (!n) return;
+      n.dataset.estado = sync.estado;
+      n.textContent = id === "sync-desktop" ? TEXTO_SYNC[sync.estado] : "";
+      n.title = TEXTO_SYNC[sync.estado] + (sync.error ? " (" + sync.error + ")" : "");
+      n.setAttribute("aria-label", n.title);
+    });
+  }
+  BM.alCambiarSync = pintarSync;
+
+  /* ---------------- login ---------------- */
+  function pantallaLogin(mensaje) {
+    var app = document.getElementById("app");
+    app.innerHTML = "";
+    var error = h("p", { class: "login-error", role: "alert", text: mensaje || "" });
+    var boton = h("button", { class: "btn primary login-btn", html:
+      '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>' +
+      "<span>Entrar con Google</span>",
+      onclick: function () {
+        boton.disabled = true;
+        error.textContent = "";
+        BM.nube.entrar().catch(function (err) {
+          boton.disabled = false;
+          if (err && err.code === "auth/popup-closed-by-user") return;
+          error.textContent = "No se pudo entrar: " + ((err && err.message) || "probá de nuevo");
+        });
+      } });
+    app.appendChild(h("main", { class: "login" }, [
+      h("div", { class: "login-caja" }, [
+        h("span", { class: "brand-mark login-mark" }),
+        h("h1", { text: "Balance" }),
+        h("p", { class: "login-bajada", text: "Tus ingresos, gastos, tarjetas y freelance, mes a mes. En la compu y en el celular." }),
+        boton,
+        error
+      ])
+    ]));
+  }
+
+  function pantallaCargando() {
+    document.getElementById("app").innerHTML = '<main class="login" aria-busy="true"><div class="login-caja"><span class="brand-mark login-mark"></span></div></main>';
+  }
+
   /* ---------------- arranque ---------------- */
-  function iniciar() {
-    store.load();
+  function abrirApp() {
     var desdeUrl = location.hash.slice(1);
     if (vista(desdeUrl)) vistaActiva = desdeUrl;
     construirShell();
     renderTodo();
+  }
+
+  function sincronizarYPintar() {
+    store.sincronizar().then(function (cambio) {
+      /* no redibujar mientras se está escribiendo en un campo */
+      var editando = document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+      if (cambio && !editando) renderTodo();
+    });
+  }
+
+  function iniciar() {
+    var nube = BM.nube;
+    if (!nube || !nube.configurada) {
+      /* sin Firebase (o abierto como archivo): todo local, como siempre */
+      store.load();
+      abrirApp();
+      return;
+    }
+    if (!nube.disponible) {
+      /* sin conexión y sin el SDK en cache: se abre la cache de la última cuenta y se sube después */
+      var ultimo = null;
+      try { ultimo = localStorage.getItem("balance-mensual:v1:ultimo-uid"); } catch (e) { /* nada */ }
+      if (ultimo) { store.abrirUsuario(ultimo); abrirApp(); }
+      else pantallaLogin("Hace falta conexión para entrar la primera vez.");
+      return;
+    }
+    pantallaCargando();
+    var uidAbierto = null;
+    nube.iniciar(function (usuario) {
+      if (!usuario) {
+        uidAbierto = null;
+        store.cerrarUsuario();
+        pantallaLogin();
+        return;
+      }
+      if (usuario.uid === uidAbierto) return;
+      uidAbierto = usuario.uid;
+      store.abrirUsuario(usuario.uid);
+      abrirApp();
+      sincronizarYPintar();
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && nube.usuario) sincronizarYPintar();
+    });
+    global.addEventListener("online", function () { if (nube.usuario) sincronizarYPintar(); });
   }
 
   if (document.readyState === "loading") {

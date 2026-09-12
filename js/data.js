@@ -77,6 +77,33 @@
     parseNum: parseNum, monthId: monthId, monthLabel: monthLabel, monthShort: monthShort, sum: sum
   };
 
+  /* Punto de partida de una cuenta nueva: el mes actual vacío */
+  BM.estadoVacio = function () {
+    var hoy = new Date();
+    var id = monthId(hoy.getFullYear(), hoy.getMonth());
+    var meses = {};
+    meses[id] = {
+      id: id, dolar: 0, balanceAnterior: 0,
+      ingresos: [], ahorros: [], inversiones: [], proyectos: [],
+      gastosFijos: [],
+      gastosVariables: [
+        { id: uid(), desc: "Resumen tarjeta (pesos)", monto: 0, auto: "tarjetaPesos" },
+        { id: uid(), desc: "Resumen tarjeta (dólares)", monto: 0, auto: "tarjetaDolares" }
+      ],
+      tarjetaPesos: [], tarjetaDolares: [], alquiler: []
+    };
+    return {
+      version: 1,
+      config: {
+        personas: { p1: "Vos", p2: "Persona 2" },
+        tarjetas: [{ id: "visa", nombre: "Visa" }],
+        presupuesto: JSON.parse(JSON.stringify(BM.seed.config.presupuesto))
+      },
+      mesActivo: id,
+      meses: meses
+    };
+  };
+
   /* ---------------------------------------------------------
      Datos de arranque — reflejan la estructura del spreadsheet.
      Se usan solo la primera vez; después manda lo guardado.
@@ -88,6 +115,7 @@
     config: {
       personas: { p1: "Ana", p2: "Martín" },
       /* Reparto ideal de lo que entra cada mes. fuente: de qué lista sale el monto real */
+      tarjetas: [{ id: "visa", nombre: "Visa" }, { id: "master", nombre: "Mastercard" }],
       presupuesto: [
         { id: "pres-fijos", nombre: "Gastos fijos", pct: 60, fuente: "gastosFijos" },
         { id: "pres-variables", nombre: "Gastos variables", pct: 15, fuente: "gastosVariables" },
@@ -131,7 +159,7 @@
           r({ fuente: "Sueldo", monto: 1800, moneda: "USD" })
         ],
         ahorros: [
-          r({ desc: "Caja de ahorro en dólares", monto: 250000 }),
+          r({ desc: "Dólares", monto: 150, moneda: "USD" }),
           r({ desc: "Fondo de emergencia", monto: 120000 })
         ],
         inversiones: [
@@ -169,15 +197,15 @@
           r({ desc: "Salidas", monto: 60000 })
         ],
         tarjetaPesos: [
-          r({ desc: "Farmacia", p1: 18500, p2: 0, cuota: "" }),
+          r({ desc: "Prepaga", p1: 98500, p2: 0, cuota: "", fijo: true }),
           r({ desc: "Zapatillas", p1: 41000, p2: 0, cuota: "1/6" }),
-          r({ desc: "Peaje", p1: 3400, p2: 3400, cuota: "" }),
+          r({ desc: "Peaje", p1: 3400, p2: 3400, cuota: "", fijo: true }),
           r({ desc: "Hotel de vacaciones", p1: 54900, p2: 54900, cuota: "2/3" }),
-          r({ desc: "Celular", p1: 12500, p2: 0, cuota: "" })
+          r({ desc: "Celular", p1: 12500, p2: 0, cuota: "", fijo: true, tarjeta: "master" })
         ],
         tarjetaDolares: [
-          r({ desc: "Música", p1: 4.99, p2: 0, cuota: "" }),
-          r({ desc: "Almacenamiento en la nube", p1: 2.99, p2: 0, cuota: "" }),
+          r({ desc: "Música", p1: 4.99, p2: 0, cuota: "", fijo: true }),
+          r({ desc: "Almacenamiento en la nube", p1: 2.99, p2: 0, cuota: "", fijo: true }),
           r({ desc: "Curso online", p1: 15, p2: 0, cuota: "" })
         ],
         alquiler: [

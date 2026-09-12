@@ -10,7 +10,8 @@ son archivos estáticos que funcionan en el navegador y se pueden instalar como 
 - Gastos separados en fijos y variables.
 - Freelance por proyecto, cada uno con sus ingresos y gastos; la ganancia neta suma al mes.
 - Presupuesto: qué porcentaje de lo que entra va a cada cosa (60/15/10/15 por defecto) y cómo vas.
-- Tarjeta en pesos y en dólares, con el corte entre dos personas y el número de cuota.
+- Varias tarjetas, en pesos y en dólares, con el corte entre dos personas, cuotas y consumos fijos
+  que pasan solos al mes siguiente.
 - Alquiler compartido y cierre del mes.
 - Todas las tablas se editan a mano: nombres, montos, agregar y borrar filas.
 - Tema claro y oscuro, y layout pensado para el celular.
@@ -25,9 +26,10 @@ Levanta <http://localhost:5173> y abre el navegador. Después de editar, recarg�
 
 ## Dónde se guardan los datos
 
-Por ahora en el navegador de cada dispositivo (`localStorage`). Desde **Ajustes** se puede
-descargar un JSON con todo y volver a importarlo en otro dispositivo. El próximo paso es
-sincronizar con Firebase; está explicado en [CLAUDE.md](CLAUDE.md).
+Se entra con Google y los datos quedan en Firebase (Firestore), así que se ven igual en la compu
+y en el celular. Cada cuenta ve solo lo suyo (`firestore.rules`). La app guarda además una copia
+en el dispositivo: abre al instante y funciona sin conexión. Desde **Ajustes** se puede
+descargar un JSON con todo o importar uno. Detalles en [CLAUDE.md](CLAUDE.md).
 
 ## Deploy
 

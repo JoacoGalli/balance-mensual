@@ -1,11 +1,13 @@
 /* Service worker mínimo: cachea el shell para que la app abra sin conexión.
    Al cambiar archivos, subí el número de CACHE para forzar la actualización. */
-var CACHE = "balance-mensual-v2";
+var CACHE = "balance-mensual-v3";
 var ASSETS = [
   "./",
   "./index.html",
   "./css/styles.css",
   "./js/data.js",
+  "./js/firebase-config.js",
+  "./js/nube.js",
   "./js/store.js",
   "./js/table.js",
   "./js/app.js",
@@ -32,11 +34,15 @@ self.addEventListener("activate", function (e) {
 self.addEventListener("fetch", function (e) {
   if (e.request.method !== "GET") return;
   var url = new URL(e.request.url);
-  /* Las fuentes de Google se piden a la red y se cachean al vuelo */
+  /* Fuentes y SDK de Firebase: se cachean al vuelo. Todo lo demás de afuera (la API de
+     Firestore, el login) va directo a la red: cachearlo devolvería datos viejos. */
+  var CDN = ["fonts.googleapis.com", "fonts.gstatic.com", "www.gstatic.com"];
+  if (url.origin !== location.origin && CDN.indexOf(url.hostname) === -1) return;
   if (url.origin !== location.origin) {
     e.respondWith(
       caches.match(e.request).then(function (hit) {
         return hit || fetch(e.request).then(function (res) {
+          if (!res.ok && res.type !== "opaque") return res;
           var copia = res.clone();
           caches.open(CACHE).then(function (c) { c.put(e.request, copia); });
           return res;

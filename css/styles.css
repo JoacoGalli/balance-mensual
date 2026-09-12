@@ -31,6 +31,7 @@
   --warning:#8F5A00;
   --warning-soft:#FCEFD3;
   --amber:#E8A317;
+  --sync-ok:#4FB286;        /* punto de "guardado": el único verde, para que se lea como ok */
 
   --rail:#2B0F0C;           /* barra lateral bordó */
   --rail-raised:#3A1813;
@@ -186,7 +187,35 @@ nav.primary-nav{display:flex; flex-direction:column; gap:2px;}
   border-radius:0 4px 4px 0; background:var(--brand);
 }
 
-.sidebar-foot{margin-top:auto; font-size:.74rem; color:var(--rail-ink-2); padding:0 8px; line-height:1.55;}
+.sidebar-foot{margin-top:auto; font-size:.74rem; color:var(--rail-ink-2); padding:0 8px; line-height:1.55; overflow-wrap:anywhere;}
+
+/* estado de guardado en la nube */
+.sync{display:flex; align-items:center; gap:7px; font-weight:600; color:var(--rail-ink); margin-bottom:4px;}
+.sync:empty{display:none;}
+.sync::before{content:""; width:8px; height:8px; border-radius:50%; background:var(--rail-ink-2); flex:none;}
+.sync[data-estado="guardado"]::before{background:var(--sync-ok);}
+.sync[data-estado="guardando"]::before{background:var(--amber);}
+.sync[data-estado="sin-conexion"]::before, .sync[data-estado="error"]::before{background:var(--negative);}
+.sync-punto{margin:0;}
+.sync-punto:empty{display:flex;}
+.sync-punto[data-estado="local"]{display:none;}
+.sync-punto::before{background:var(--ink-3);}
+
+/* ---------- login ---------- */
+.login{
+  min-height:100vh; display:grid; place-items:center; padding:24px 16px;
+  background:var(--rail); color:var(--rail-ink);
+}
+.login-caja{max-width:360px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:14px;}
+.login-mark{width:64px; height:64px;}
+.login h1{font-size:2.6rem; font-stretch:125%; font-weight:850; letter-spacing:-.04em;}
+.login-bajada{margin:0 0 10px; color:var(--rail-ink-2); font-size:1rem; line-height:1.5;}
+.login-btn{padding:12px 22px; font-size:1rem; gap:10px;}
+.login-btn:disabled{opacity:.6; cursor:progress;}
+.login-btn svg{background:#fff; border-radius:50%; padding:2px; box-sizing:content-box;}
+.login-error{margin:0; min-height:1.4em; color:var(--rail-ink); font-size:.88rem;}
+.login[aria-busy="true"] .login-mark{animation:latido 1.2s ease-in-out infinite;}
+@keyframes latido{50%{transform:scale(.88); opacity:.7;}}
 
 main.content{flex:1; min-width:0; padding:34px clamp(16px,4vw,52px) 96px; max-width:1240px;}
 
@@ -314,6 +343,8 @@ select.cell-input{cursor:pointer; min-width:4.8rem;}
 .etable td.left .cell-input{min-width:7.5rem;}
 select.cell-input option{background:var(--paper-raised); color:var(--ink);}
 
+td.col-check{text-align:center;}
+.cell-check{width:18px; height:18px; accent-color:var(--brand); cursor:pointer; margin:0 6px;}
 td.col-del{width:30px;}
 .row-del{
   border:none; background:none; color:var(--ink-3); cursor:pointer;
@@ -444,6 +475,7 @@ dialog::backdrop{background:rgba(43,15,12,.5);}
 .bottom-nav{display:none;}
 .mobile-topbar{display:none; align-items:center; justify-content:space-between; gap:10px; margin-bottom:18px;}
 .mobile-topbar .brand{padding:0;}
+.mobile-topbar-der{display:flex; align-items:center; gap:10px;}
 .mobile-topbar .brand-mark{width:22px; height:22px;}
 .mobile-topbar select{
   font-family:var(--display); font-stretch:112%; font-weight:700; font-size:.9rem; border:1px solid var(--border-strong);

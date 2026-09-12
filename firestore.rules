@@ -1,0 +1,10 @@
+rules_version = '2';
+
+// Cada usuario lee y escribe solo lo suyo: usuarios/{uid} y todo lo que cuelga de ahí.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /usuarios/{uid}/{documento=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

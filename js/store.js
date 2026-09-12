@@ -1,9 +1,10 @@
 /* =========================================================
    store.js — estado, persistencia y cálculos derivados
    Expone: window.BM.store
-   Hoy guarda en localStorage. La capa está aislada a propósito:
-   para sincronizar entre dispositivos solo hay que reemplazar
-   load() / persist() por Firestore (ver CLAUDE.md).
+   Guarda siempre en localStorage (abre al instante y anda sin conexión).
+   Con sesión iniciada, además sincroniza con Firestore vía BM.nube:
+   cada usuario tiene su propia cache local, y los cambios hechos sin
+   conexión quedan marcados como pendientes hasta que se suben.
    ========================================================= */
 (function (global) {
   "use strict";
@@ -25,30 +26,132 @@
     if (!Array.isArray(st.config.presupuesto)) {
       st.config.presupuesto = JSON.parse(JSON.stringify(BM.seed.config.presupuesto));
     }
+    if (!Array.isArray(st.config.tarjetas) || !st.config.tarjetas.length) {
+      st.config.tarjetas = [{ id: "visa", nombre: "Visa" }];
+    }
+    var primeraTarjeta = st.config.tarjetas[0].id;
     Object.keys(st.meses).forEach(function (id) {
-      if (!Array.isArray(st.meses[id].inversiones)) st.meses[id].inversiones = [];
+      var mes = st.meses[id];
+      ["ingresos", "ahorros", "inversiones", "proyectos", "gastosFijos", "gastosVariables",
+       "tarjetaPesos", "tarjetaDolares", "alquiler"].forEach(function (lista) {
+        if (!Array.isArray(mes[lista])) mes[lista] = [];
+      });
+      mes.tarjetaPesos.concat(mes.tarjetaDolares).forEach(function (row) {
+        if (!row.tarjeta) row.tarjeta = primeraTarjeta;
+      });
+      mes.ahorros.concat(mes.inversiones).forEach(function (row) {
+        if (!row.moneda) row.moneda = "ARS";
+      });
     });
+    if (!st.meses[st.mesActivo]) st.mesActivo = Object.keys(st.meses).sort().pop();
     return st;
   }
 
-  function load() {
-    var raw = null;
-    try { raw = global.localStorage.getItem(KEY); } catch (e) { raw = null; }
+  var uid = null;              /* con sesión: la cache y la nube son de este usuario */
+  var syncTimer = null;
+  var cambiosSinSubir = 0;      /* cuántas ediciones hubo desde la última subida exitosa */
+  var estadoSync = "local";     /* local | guardando | guardado | sin-conexion | error */
+  var errorSync = "";
+
+  function clave(sufijo) { return KEY + (uid ? ":" + uid : "") + (sufijo || ""); }
+  function leer(k) { try { return global.localStorage.getItem(k); } catch (e) { return null; } }
+  function escribir(k, v) {
+    try { if (v === null) global.localStorage.removeItem(k); else global.localStorage.setItem(k, v); } catch (e) { /* modo privado, sin espacio */ }
+  }
+
+  function desdeCache() {
+    var raw = leer(clave());
     if (raw) {
       try {
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.meses) { state = normalizar(parsed); return state; }
-      } catch (e) { /* datos corruptos: caemos al seed */ }
+        if (parsed && parsed.meses) return normalizar(parsed);
+      } catch (e) { /* datos corruptos */ }
     }
-    state = normalizar(JSON.parse(JSON.stringify(BM.seed)));
+    return null;
+  }
+
+  /* Sin login: datos de este dispositivo, o los de ejemplo la primera vez */
+  function load() {
+    uid = null;
+    state = desdeCache() || normalizar(JSON.parse(JSON.stringify(BM.seed)));
     return state;
+  }
+
+  /* Con login: la cache de ese usuario, o un estado vacío si es la primera vez en este dispositivo */
+  function abrirUsuario(nuevoUid) {
+    uid = nuevoUid;
+    escribir(KEY + ":ultimo-uid", uid);
+    state = desdeCache() || normalizar(BM.estadoVacio());
+    cambiosSinSubir = leer(clave(":pendiente")) ? 1 : 0;
+    setSync(cambiosSinSubir ? "sin-conexion" : "guardando");
+    return state;
+  }
+
+  function cerrarUsuario() {
+    uid = null;
+    clearTimeout(syncTimer);
+    setSync("local");
+  }
+
+  function setSync(nuevo, detalle) {
+    estadoSync = nuevo;
+    errorSync = detalle || "";
+    if (BM.alCambiarSync) BM.alCambiarSync(estadoSync, errorSync);
+  }
+  function getSync() { return { estado: estadoSync, error: errorSync, pendiente: cambiosSinSubir > 0 }; }
+
+  function subir() {
+    if (!uid || !BM.nube || !BM.nube.usuario) return Promise.resolve();
+    if (global.navigator && global.navigator.onLine === false) { setSync("sin-conexion"); return Promise.resolve(); }
+    var hasta = cambiosSinSubir;
+    setSync("guardando");
+    return BM.nube.subir(state).then(function () {
+      cambiosSinSubir -= hasta;
+      if (cambiosSinSubir <= 0) { cambiosSinSubir = 0; escribir(clave(":pendiente"), null); }
+      setSync("guardado");
+    }, function (err) {
+      var offline = global.navigator && global.navigator.onLine === false;
+      setSync(offline ? "sin-conexion" : "error", err && err.message);
+    });
+  }
+
+  /* Al abrir la app o volver a ella. Si hay cambios locales sin subir, ganan ellos;
+     si no, manda lo que está en la nube. Devuelve true si cambiaron los datos en pantalla. */
+  function sincronizar() {
+    if (!uid || !BM.nube || !BM.nube.usuario) return Promise.resolve(false);
+    if (cambiosSinSubir > 0) return subir().then(function () { return false; });
+    setSync("guardando");
+    return BM.nube.bajar().then(function (remoto) {
+      if (!remoto) {
+        /* primera vez de esta cuenta: lo que haya en este dispositivo pasa a la nube */
+        cambiosSinSubir = 1;
+        return subir().then(function () { return false; });
+      }
+      remoto.mesActivo = state.mesActivo;
+      remoto = normalizar(remoto);
+      var antes = JSON.stringify({ c: state.config, m: state.meses });
+      var despues = JSON.stringify({ c: remoto.config, m: remoto.meses });
+      setSync("guardado");
+      if (antes === despues) return false;
+      state = remoto;
+      escribir(clave(), JSON.stringify(state));
+      return true;
+    }, function (err) {
+      var offline = global.navigator && global.navigator.onLine === false;
+      setSync(offline ? "sin-conexion" : "error", err && err.message);
+      return false;
+    });
   }
 
   function persist() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      try { global.localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* modo privado, sin espacio */ }
-    }, 250);
+    saveTimer = setTimeout(function () { escribir(clave(), JSON.stringify(state)); }, 250);
+    if (uid) {
+      cambiosSinSubir++;
+      escribir(clave(":pendiente"), "1");
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(subir, 1200);
+    }
   }
 
   function emit() {
@@ -91,11 +194,11 @@
      listName: "ingresos" | "ahorros" | "inversiones" | "gastosFijos" | "gastosVariables"
                | "tarjetaPesos" | "tarjetaDolares" | "alquiler"
      Para proyectos: proyectoId + "ingresos" | "gastos"
-     "presupuesto" no depende del mes: vive en config y vale para todos.
+     "presupuesto" y "tarjetas" no dependen del mes: viven en config y valen para todos.
   ------------------------------------------------- */
 
   function getList(listName, proyectoId) {
-    if (listName === "presupuesto") return state.config.presupuesto;
+    if (listName === "presupuesto" || listName === "tarjetas") return state.config[listName];
     var mes = mesActual();
     if (proyectoId) {
       var p = (mes.proyectos || []).find(function (x) { return x.id === proyectoId; });
@@ -163,6 +266,26 @@
       tarjetaPesos: [], tarjetaDolares: [], alquiler: []
     };
 
+    /* "3/6" -> "4/6"; null si la cuota ya era la última (o no es una cuota) */
+    function siguienteCuota(cuota) {
+      var m = String(cuota || "").match(/^\s*(\d+)\s*\/\s*(\d+)\s*$/);
+      if (!m) return null;
+      var n = parseInt(m[1], 10), total = parseInt(m[2], 10);
+      return n < total ? (n + 1) + "/" + total : null;
+    }
+
+    /* De la tarjeta pasan al mes siguiente los consumos fijos (con su monto)
+       y las cuotas que no terminaron (con la cuota avanzada) */
+    function copiarTarjeta(lista) {
+      return (lista || []).reduce(function (acc, row) {
+        var tieneCuota = String(row.cuota || "").trim() !== "";
+        var sig = tieneCuota ? siguienteCuota(row.cuota) : null;
+        if (tieneCuota && sig) acc.push(Object.assign({}, row, { id: U.uid(), cuota: sig }));
+        else if (!tieneCuota && row.fijo) acc.push(Object.assign({}, row, { id: U.uid() }));
+        return acc;
+      }, []);
+    }
+
     function copiar(lista, limpiarMontos) {
       return (lista || []).map(function (row) {
         var copia = Object.assign({}, row, { id: U.uid() });
@@ -179,13 +302,15 @@
       nuevo.gastosFijos = copiar(base.gastosFijos, false);
       nuevo.alquiler = copiar(base.alquiler, false);
     }
+    if (opciones.copiarTarjetas && base) {
+      nuevo.tarjetaPesos = copiarTarjeta(base.tarjetaPesos);
+      nuevo.tarjetaDolares = copiarTarjeta(base.tarjetaDolares);
+    }
     if (opciones.copiarIngresos && base) {
       nuevo.ingresos = copiar(base.ingresos, false);
     }
     if (opciones.copiarEstructura && base) {
       nuevo.gastosVariables = copiar(base.gastosVariables, true);
-      nuevo.tarjetaPesos = copiar(base.tarjetaPesos, true);
-      nuevo.tarjetaDolares = copiar(base.tarjetaDolares, true);
       nuevo.proyectos = (base.proyectos || []).map(function (p) {
         return { id: U.uid(), nombre: p.nombre, ingresos: copiar(p.ingresos, true), gastos: copiar(p.gastos, true) };
       });
@@ -211,10 +336,15 @@
     mes = mes || mesActual();
     var dolar = Number(mes.dolar) || 0;
 
-    var totalIngresos = (mes.ingresos || []).reduce(function (a, i) {
-      var monto = Number(i.monto) || 0;
-      return a + (i.moneda === "USD" ? monto * dolar : monto);
-    }, 0);
+    function enPesos(row) {
+      var monto = Number(row.monto) || 0;
+      return row.moneda === "USD" ? monto * dolar : monto;
+    }
+    function sumaEnPesos(lista) {
+      return (lista || []).reduce(function (a, row) { return a + enPesos(row); }, 0);
+    }
+
+    var totalIngresos = sumaEnPesos(mes.ingresos);
 
     var tarjetaP1Pesos = U.sum(mes.tarjetaPesos, "p1");
     var tarjetaP2Pesos = U.sum(mes.tarjetaPesos, "p2");
@@ -223,12 +353,25 @@
     var totalTarjetaPesos = tarjetaP1Pesos + tarjetaP2Pesos;
     var totalTarjetaDolares = tarjetaP1Usd + tarjetaP2Usd;
 
-    /* Las filas marcadas con "auto" toman su valor de los totales de tarjeta */
+    /* Las filas marcadas con "auto" toman su valor de la tarjeta. Cuenta solo la parte
+       de la persona 1 (vos): la parte de la otra persona la paga ella. */
     function montoDeFila(row) {
-      if (row.auto === "tarjetaPesos") return totalTarjetaPesos;
-      if (row.auto === "tarjetaDolares") return totalTarjetaDolares * dolar;
+      if (row.auto === "tarjetaPesos") return tarjetaP1Pesos;
+      if (row.auto === "tarjetaDolares") return tarjetaP1Usd * dolar;
       return Number(row.monto) || 0;
     }
+
+    var tarjetasConfig = (state && state.config.tarjetas) || [];
+    var porTarjeta = tarjetasConfig.map(function (t, i) {
+      function deEsta(row) { return (row.tarjeta || (tarjetasConfig[0] && tarjetasConfig[0].id)) === t.id; }
+      var pesos = (mes.tarjetaPesos || []).filter(deEsta);
+      var usd = (mes.tarjetaDolares || []).filter(deEsta);
+      return {
+        id: t.id, nombre: t.nombre || ("Tarjeta " + (i + 1)),
+        pesos: U.sum(pesos, "p1") + U.sum(pesos, "p2"),
+        usd: U.sum(usd, "p1") + U.sum(usd, "p2")
+      };
+    });
 
     var totalFijos = (mes.gastosFijos || []).reduce(function (a, r) { return a + montoDeFila(r); }, 0);
     var totalVariables = (mes.gastosVariables || []).reduce(function (a, r) { return a + montoDeFila(r); }, 0);
@@ -241,8 +384,8 @@
     });
     var gananciaProyectos = proyectos.reduce(function (a, p) { return a + p.neto; }, 0);
 
-    var totalAhorros = U.sum(mes.ahorros, "monto");
-    var totalInversiones = U.sum(mes.inversiones, "monto");
+    var totalAhorros = sumaEnPesos(mes.ahorros);
+    var totalInversiones = sumaEnPesos(mes.inversiones);
     var balanceDelMes = totalIngresos + gananciaProyectos - totalGastos;
     var balanceFinal = (Number(mes.balanceAnterior) || 0) + balanceDelMes;
 
@@ -286,7 +429,8 @@
       tarjetaP1Pesos: tarjetaP1Pesos, tarjetaP2Pesos: tarjetaP2Pesos,
       tarjetaP1Usd: tarjetaP1Usd, tarjetaP2Usd: tarjetaP2Usd,
       totalTarjetaPesos: totalTarjetaPesos, totalTarjetaDolares: totalTarjetaDolares,
-      montoDeFila: montoDeFila
+      porTarjeta: porTarjeta,
+      montoDeFila: montoDeFila, enPesos: enPesos
     };
   }
 
@@ -312,12 +456,15 @@
   }
 
   function resetear() {
+    var activo = state && state.mesActivo;
     state = normalizar(JSON.parse(JSON.stringify(BM.seed)));
+    if (activo && state.meses[activo]) state.mesActivo = activo;
     emit();
   }
 
   BM.store = {
     load: load, subscribe: subscribe, emit: emit, getState: getState,
+    abrirUsuario: abrirUsuario, cerrarUsuario: cerrarUsuario, sincronizar: sincronizar, subir: subir, getSync: getSync,
     mesActual: mesActual, mesesOrdenados: mesesOrdenados, setMesActivo: setMesActivo,
     personas: personas, setPersona: setPersona,
     setDolar: setDolar, setBalanceAnterior: setBalanceAnterior,
