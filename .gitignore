@@ -1,0 +1,16 @@
+.DS_Store
+Thumbs.db
+node_modules/
+*.log
+.vscode/
+.idea/
+
+# config real de Firebase (cuando exista), por si lleva algo que no querés versionar
+js/firebase.local.js
+
+# datos reales: nunca al repo público (van a Firebase)
+*.xlsx
+*.xls
+*.csv
+*.ods
+balance-mensual-*.json
