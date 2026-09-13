@@ -79,6 +79,9 @@ icons/            iconos PWA (192, 512, maskable)
   La vista Tarjetas muestra una sección por tarjeta, con dos tablas (pesos y dólares) filtradas
   por esa tarjeta vía `cfg.filtro` en `BM.table.render` — la lista real (`mes.tarjetaPesos`)
   sigue siendo una sola, el filtro es solo de qué se ve en cada tabla.
+- **Vivienda**: `config.viviendaTipo` ("alquiler" | "hipotecario") solo cambia las etiquetas de la
+  vista Balance ("Alquiler compartido"/"Hipoteca compartida", etc.); la lista `alquiler` (persona,
+  monto, %) es la misma para los dos casos. Se cambia con dos botones en Ajustes → Vivienda.
 - **Freelance: reparto por proyecto** (`proyecto.pct`, 100 por defecto): para un proyecto con
   un socio, el gasto se resta primero del ingreso (`netoTotal`) y recién sobre eso se aplica el
   %. `calc().proyectos[].neto` ya es tu parte — es lo que se suma a `gananciaProyectos` y al

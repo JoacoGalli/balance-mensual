@@ -821,9 +821,15 @@
   function renderBalance() {
     var cont = document.getElementById("view-balance");
     cont.innerHTML = "";
-    cont.appendChild(encabezado(vista("balance")));
+    var esHipoteca = store.getState().config.viviendaTipo === "hipotecario";
+    cont.appendChild(encabezado(Object.assign({}, vista("balance"), {
+      titulo: esHipoteca ? "Hipoteca y balance" : "Alquiler y balance",
+      sub: esHipoteca ? "La cuota de la hipoteca y cómo cierra el mes." : "El reparto del alquiler y cómo cierra el mes."
+    })));
 
-    var pAlq = panel("Alquiler compartido");
+    var pAlq = panel(esHipoteca ? "Hipoteca compartida" : "Alquiler compartido");
+    pAlq.appendChild(h("p", { class: "panel-note",
+      text: esHipoteca ? "Cómo se reparte la cuota de la hipoteca entre las personas." : "Cómo se reparte el alquiler entre las personas." }));
     var mount = h("div");
     pAlq.appendChild(mount);
     BM.table.render(mount, {
@@ -892,6 +898,18 @@
     });
     mountPer.addEventListener("focusout", function () { renderTarjetas(); });
     mountPer.addEventListener("click", function () { renderTarjetas(); });
+
+    var pVivienda = panel("Vivienda");
+    pVivienda.appendChild(h("p", { class: "panel-note",
+      text: "Si vivís de alquiler o pagás una hipoteca, para que la vista Balance use el nombre correcto." }));
+    var tabsVivienda = h("div", { class: "tabs" });
+    [["alquiler", "Alquiler"], ["hipotecario", "Hipoteca"]].forEach(function (t) {
+      tabsVivienda.appendChild(h("button", {
+        class: "tab" + (store.getState().config.viviendaTipo === t[0] ? " active" : ""), text: t[1],
+        onclick: function () { store.setViviendaTipo(t[0]); renderAjustes(); renderBalance(); }
+      }));
+    });
+    pVivienda.appendChild(tabsVivienda);
 
     var pTarjetas = panel("Tarjetas");
     pTarjetas.appendChild(h("p", { class: "panel-note", text: "Cada una tiene su propia sección en Tarjetas, con sus consumos en pesos y en dólares." }));
@@ -985,7 +1003,7 @@
       } })
     ]));
 
-    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pCuenta, pPersonas, pDatos]), h("div", {}, [pTarjetas, pMeses])]));
+    cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pCuenta, pPersonas, pDatos]), h("div", {}, [pTarjetas, pVivienda, pMeses])]));
   }
 
   /* =========================================================

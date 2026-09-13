@@ -97,6 +97,7 @@
       version: 1,
       config: {
         personas: [{ id: "p1", nombre: "Vos" }],
+        viviendaTipo: "alquiler",
         tarjetas: [{ id: "visa", nombre: "Visa" }],
         presupuesto: JSON.parse(JSON.stringify(BM.seed.config.presupuesto))
       },
@@ -115,6 +116,7 @@
     version: 1,
     config: {
       personas: [{ id: "p1", nombre: "Ana" }, { id: "p2", nombre: "Martín" }],
+      viviendaTipo: "alquiler",
       /* Reparto ideal de lo que entra cada mes. fuente: de qué lista sale el monto real */
       tarjetas: [{ id: "visa", nombre: "Visa" }, { id: "master", nombre: "Mastercard" }],
       presupuesto: [

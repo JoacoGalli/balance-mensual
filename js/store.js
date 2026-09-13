@@ -30,6 +30,7 @@
       if (p.p2) st.config.personas.push({ id: "p2", nombre: p.p2 });
     }
     if (!st.config.personas.length) st.config.personas = [{ id: "p1", nombre: "Vos" }];
+    if (st.config.viviendaTipo !== "hipotecario") st.config.viviendaTipo = "alquiler";
     if (!Array.isArray(st.config.presupuesto)) {
       st.config.presupuesto = JSON.parse(JSON.stringify(BM.seed.config.presupuesto));
     }
@@ -201,6 +202,11 @@
 
   function setInversionAnterior(valor) {
     mesActual().inversionAnterior = valor || 0;
+    emit();
+  }
+
+  function setViviendaTipo(tipo) {
+    state.config.viviendaTipo = tipo === "hipotecario" ? "hipotecario" : "alquiler";
     emit();
   }
 
@@ -508,6 +514,7 @@
     personas: personas,
     setDolar: setDolar, setBalanceAnterior: setBalanceAnterior,
     setAhorroAnterior: setAhorroAnterior, setInversionAnterior: setInversionAnterior,
+    setViviendaTipo: setViviendaTipo,
     getList: getList, updateRow: updateRow, addRow: addRow, deleteRow: deleteRow,
     addProyecto: addProyecto, updateProyecto: updateProyecto, deleteProyecto: deleteProyecto,
     crearMes: crearMes, borrarMes: borrarMes,
