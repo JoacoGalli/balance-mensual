@@ -60,6 +60,8 @@
       });
       if (typeof mes.ahorroAnterior !== "number") mes.ahorroAnterior = 0;
       if (typeof mes.inversionAnterior !== "number") mes.inversionAnterior = 0;
+      if (mes.ahorroAnteriorMoneda !== "USD") mes.ahorroAnteriorMoneda = "ARS";
+      if (mes.inversionAnteriorMoneda !== "USD") mes.inversionAnteriorMoneda = "ARS";
     });
     if (!st.meses[st.mesActivo]) st.mesActivo = Object.keys(st.meses).sort().pop();
     return st;
@@ -213,6 +215,16 @@
     emit();
   }
 
+  function setAhorroAnteriorMoneda(moneda) {
+    mesActual().ahorroAnteriorMoneda = moneda === "USD" ? "USD" : "ARS";
+    emit();
+  }
+
+  function setInversionAnteriorMoneda(moneda) {
+    mesActual().inversionAnteriorMoneda = moneda === "USD" ? "USD" : "ARS";
+    emit();
+  }
+
   function setViviendaTipo(tipo) {
     state.config.viviendaTipo = tipo === "hipotecario" ? "hipotecario" : "alquiler";
     emit();
@@ -295,6 +307,7 @@
          del balance, no tiene sentido "cortar" la cuenta al crear un mes nuevo */
       ahorroAnterior: base ? calc(base).ahorroFinal : 0,
       inversionAnterior: base ? calc(base).inversionFinal : 0,
+      ahorroAnteriorMoneda: "ARS", inversionAnteriorMoneda: "ARS",
       ingresos: [], ahorros: [], inversiones: [], proyectos: [],
       gastosFijos: [], gastosVariables: [],
       tarjetaPesos: [], tarjetaDolares: [], tarjetasTerceros: [], alquiler: []
@@ -378,6 +391,8 @@
       var actual = state.meses[ids[i]];
       actual.ahorroAnterior = anterior.ahorroFinal;
       actual.inversionAnterior = anterior.inversionFinal;
+      actual.ahorroAnteriorMoneda = "ARS";
+      actual.inversionAnteriorMoneda = "ARS";
     }
     emit();
   }
@@ -473,8 +488,10 @@
 
     var totalAhorros = sumaEnPesos(mes.ahorros);
     var totalInversiones = sumaEnPesos(mes.inversiones);
-    var ahorroFinal = (Number(mes.ahorroAnterior) || 0) + totalAhorros;
-    var inversionFinal = (Number(mes.inversionAnterior) || 0) + totalInversiones;
+    var ahorroAnteriorPesos = enPesos({ monto: mes.ahorroAnterior, moneda: mes.ahorroAnteriorMoneda });
+    var inversionAnteriorPesos = enPesos({ monto: mes.inversionAnterior, moneda: mes.inversionAnteriorMoneda });
+    var ahorroFinal = ahorroAnteriorPesos + totalAhorros;
+    var inversionFinal = inversionAnteriorPesos + totalInversiones;
     var balanceDelMes = totalIngresos + gananciaProyectos - totalGastos;
     var balanceFinal = (Number(mes.balanceAnterior) || 0) + balanceDelMes;
 
@@ -560,6 +577,7 @@
     personas: personas,
     setDolar: setDolar, setBalanceAnterior: setBalanceAnterior,
     setAhorroAnterior: setAhorroAnterior, setInversionAnterior: setInversionAnterior,
+    setAhorroAnteriorMoneda: setAhorroAnteriorMoneda, setInversionAnteriorMoneda: setInversionAnteriorMoneda,
     setViviendaTipo: setViviendaTipo,
     getList: getList, updateRow: updateRow, addRow: addRow, deleteRow: deleteRow,
     addProyecto: addProyecto, updateProyecto: updateProyecto, deleteProyecto: deleteProyecto,

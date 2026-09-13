@@ -373,21 +373,34 @@
       totalFn: function () { return U.fmtARS(store.calc().totalIngresos); }
     });
 
-    /* Campo de "antes de este mes" + total acumulado, reutilizado para ahorros e inversiones */
-    function campoAcumulado(panelDestino, id, label, valor, onInput) {
+    /* Campo de "antes de este mes" (con su moneda) + total acumulado, para ahorros e inversiones.
+       La moneda es libre: si lo tenés en dólares, elegís USD y editás directamente ese número
+       cada mes, sin pasarlo vos a pesos — la conversión la hace la app con el dólar del mes. */
+    function campoAcumulado(panelDestino, id, label, valor, onInput, moneda, onMoneda) {
       var inp = h("input", { type: "text", inputmode: "decimal", id: id, value: U.fmtNum(valor, 0) });
       inp.addEventListener("focus", function () { inp.value = String(valor || ""); inp.select(); });
       inp.addEventListener("input", function () { onInput(U.parseNum(inp.value)); BM.refreshDerived(); });
       inp.addEventListener("blur", function () { inp.value = U.fmtNum(valor, 0); });
-      panelDestino.appendChild(h("div", { class: "field-row" }, [h("label", { for: id, text: label }), inp]));
+
+      var sel = h("select", { class: "moneda-select", "aria-label": label + ", moneda" });
+      ["ARS", "USD"].forEach(function (m) { sel.appendChild(h("option", { value: m, text: m })); });
+      sel.value = moneda;
+      sel.addEventListener("change", function () { onMoneda(sel.value); renderIngresos(); BM.refreshDerived(); });
+
+      panelDestino.appendChild(h("div", { class: "field-row" }, [
+        h("label", { for: id, text: label }),
+        h("div", { class: "field-con-moneda" }, [inp, sel])
+      ]));
     }
 
     /* ahorros */
     var pAho = panel("Ahorros");
     pAho.appendChild(h("p", { class: "panel-note",
       text: "Tres números: cuánto tenías al empezar el mes, cuánto sumaste o sacaste en el mes (podés poner un número negativo), " +
-        "y cuánto te queda al cierre — que es, a su vez, el punto de partida del mes que viene." }));
-    campoAcumulado(pAho, "ahorro-anterior", "Al empezar este mes", store.mesActual().ahorroAnterior, store.setAhorroAnterior);
+        "y cuánto te queda al cierre — que es, a su vez, el punto de partida del mes que viene. " +
+        "Si tu ahorro lo pensás en dólares, elegí USD: podés ir ajustando ese número directamente mes a mes." }));
+    campoAcumulado(pAho, "ahorro-anterior", "Al empezar este mes", store.mesActual().ahorroAnterior, store.setAhorroAnterior,
+      store.mesActual().ahorroAnteriorMoneda, store.setAhorroAnteriorMoneda);
     var mountAho = h("div");
     pAho.appendChild(mountAho);
     BM.table.render(mountAho, {
@@ -410,7 +423,8 @@
     /* inversiones */
     var pInv = panel("Inversiones");
     pInv.appendChild(h("p", { class: "panel-note", text: "Igual que Ahorros: al empezar el mes, el movimiento del mes, y al cerrarlo." }));
-    campoAcumulado(pInv, "inversion-anterior", "Al empezar este mes", store.mesActual().inversionAnterior, store.setInversionAnterior);
+    campoAcumulado(pInv, "inversion-anterior", "Al empezar este mes", store.mesActual().inversionAnterior, store.setInversionAnterior,
+      store.mesActual().inversionAnteriorMoneda, store.setInversionAnteriorMoneda);
     var mountInv = h("div");
     pInv.appendChild(mountInv);
     BM.table.render(mountInv, {

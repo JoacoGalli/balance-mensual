@@ -457,6 +457,15 @@ td.col-del{width:30px;}
 .field-row input:focus{border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-soft);}
 .btn-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
 
+/* input + selector de moneda pegados, como "Al empezar este mes" de Ahorros/Inversiones */
+.field-con-moneda{display:flex; gap:6px;}
+.field-con-moneda input{max-width:130px;}
+.moneda-select{
+  border:1px solid var(--border-strong); background:var(--paper); color:var(--ink-2);
+  font:inherit; font-size:.82rem; font-weight:600; padding:0 6px; border-radius:9px; cursor:pointer;
+}
+.moneda-select:focus{border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-soft);}
+
 /* ---------- dialog ---------- */
 dialog{
   border:none; border-radius:20px; background:var(--paper-raised);

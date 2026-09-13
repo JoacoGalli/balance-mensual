@@ -91,6 +91,12 @@ icons/            iconos PWA (192, 512, maskable)
 - **Ahorro e inversión acumulados**: `mesActual().ahorroAnterior`/`inversionAnterior`
   siguen siendo editables a mano por mes (a diferencia de `balanceAnterior`, ahora
   `crearMes()` los arrastra siempre, sin depender del checkbox de arrastrar balance).
+  Cada uno tiene su propia moneda (`ahorroAnteriorMoneda`/`inversionAnteriorMoneda`,
+  ARS por defecto): si se pone en USD, `calc()` lo pesifica con el dólar de ESE mes
+  (misma lógica que `enPesos()` para las filas de movimientos) — así alguien que
+  piensa su ahorro en dólares edita ese número directamente mes a mes, sin convertir
+  nada a mano. Cuando `crearMes()`/`recalcularAcumulados()` arrastran el valor del mes
+  anterior, siempre queda en ARS (ya salió de un cálculo, no de una carga manual).
   `store.recalcularAcumulados()` (botón en Ajustes → Meses) recorre los meses en orden
   y deja el "antes de este mes" de cada uno igual al final del anterior — para arreglar
   cadenas cortadas, como los meses importados de un Excel que no tenía este campo.
