@@ -1,6 +1,6 @@
 /* Service worker mínimo: cachea el shell para que la app abra sin conexión.
    Al cambiar archivos, subí el número de CACHE para forzar la actualización. */
-var CACHE = "balance-mensual-v4";
+var CACHE = "balance-mensual-v5";
 var ASSETS = [
   "./",
   "./index.html",

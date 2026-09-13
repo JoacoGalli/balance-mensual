@@ -461,7 +461,7 @@
       var card = h("div", { class: "project-card panel" });
 
       var inputNombre = h("input", { type: "text", value: p.nombre, "aria-label": "Nombre del proyecto" });
-      inputNombre.addEventListener("input", function () { store.updateProyecto(p.id, inputNombre.value); BM.refreshDerived(); });
+      inputNombre.addEventListener("input", function () { store.updateProyecto(p.id, "nombre", inputNombre.value); BM.refreshDerived(); });
 
       var neto = h("span", { class: "project-neto num", dataset: { calc: "proy-" + p.id } });
       BM.calcs["proy-" + p.id] = function () {
@@ -483,6 +483,34 @@
       });
 
       card.appendChild(h("div", { class: "project-head" }, [inputNombre, neto, borrar]));
+
+      /* si el proyecto se reparte con alguien más (ej. un socio), acá se define qué parte
+         del neto (ingresos menos gastos) es la tuya; por defecto el 100% */
+      var pctActual = p.pct === undefined || p.pct === null || p.pct === "" ? 100 : p.pct;
+      var inputPct = h("input", { type: "text", inputmode: "decimal", value: String(pctActual),
+        id: "pct-" + p.id, "aria-label": "Tu parte de " + p.nombre + ", en porcentaje" });
+      inputPct.addEventListener("focus", function () { inputPct.select(); });
+      inputPct.addEventListener("input", function () {
+        store.updateProyecto(p.id, "pct", U.parseNum(inputPct.value));
+        BM.refreshDerived();
+      });
+      inputPct.addEventListener("blur", function () {
+        var f = store.calc().proyectos.find(function (x) { return x.id === p.id; });
+        inputPct.value = String(f ? f.pct : 100);
+      });
+
+      var notaPct = h("span", { class: "project-split-nota num", dataset: { calc: "proy-nota-" + p.id } });
+      BM.calcs["proy-nota-" + p.id] = function () {
+        var f = store.calc().proyectos.find(function (x) { return x.id === p.id; });
+        if (!f || f.pct === 100) return "";
+        return "de " + U.fmtARS(f.netoTotal) + " netos del proyecto";
+      };
+      notaPct.textContent = BM.calcs["proy-nota-" + p.id]();
+
+      card.appendChild(h("div", { class: "project-split" }, [
+        h("label", { for: "pct-" + p.id, text: "Tu parte de este proyecto" }), inputPct,
+        h("span", { text: "%" }), notaPct
+      ]));
 
       var colIng = h("div", {}, [h("h4", { text: "Ingresos" })]);
       var mountPI = h("div"); colIng.appendChild(mountPI);

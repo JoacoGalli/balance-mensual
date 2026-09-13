@@ -249,15 +249,16 @@
   function addProyecto(nombre) {
     var mes = mesActual();
     if (!mes.proyectos) mes.proyectos = [];
-    var p = { id: U.uid(), nombre: nombre || "Proyecto nuevo", ingresos: [], gastos: [] };
+    var p = { id: U.uid(), nombre: nombre || "Proyecto nuevo", pct: 100, ingresos: [], gastos: [] };
     mes.proyectos.push(p);
     emit();
     return p;
   }
 
-  function updateProyecto(proyectoId, nombre) {
+  /* campo: "nombre" | "pct" (tu parte del neto, en %; 100 = todo tuyo) */
+  function updateProyecto(proyectoId, campo, valor) {
     var p = (mesActual().proyectos || []).find(function (x) { return x.id === proyectoId; });
-    if (p) { p.nombre = nombre; emit(); }
+    if (p) { p[campo] = valor; emit(); }
   }
 
   function deleteProyecto(proyectoId) {
@@ -330,7 +331,8 @@
     if (opciones.copiarEstructura && base) {
       nuevo.gastosVariables = copiar(base.gastosVariables, true);
       nuevo.proyectos = (base.proyectos || []).map(function (p) {
-        return { id: U.uid(), nombre: p.nombre, ingresos: copiar(p.ingresos, true), gastos: copiar(p.gastos, true) };
+        return { id: U.uid(), nombre: p.nombre, pct: p.pct === undefined ? 100 : p.pct,
+                 ingresos: copiar(p.ingresos, true), gastos: copiar(p.gastos, true) };
       });
     }
 
@@ -409,7 +411,11 @@
     var proyectos = (mes.proyectos || []).map(function (p) {
       var ing = U.sum(p.ingresos, "monto");
       var gas = U.sum(p.gastos, "monto");
-      return { id: p.id, nombre: p.nombre, ingresos: ing, gastos: gas, neto: ing - gas };
+      var netoTotal = ing - gas;
+      var pct = (p.pct === undefined || p.pct === null || p.pct === "") ? 100 : Number(p.pct);
+      /* el gasto se resta primero del total del proyecto; recién sobre eso se aplica tu parte
+         (para proyectos que se reparten con otra persona, ej. un socio) */
+      return { id: p.id, nombre: p.nombre, pct: pct, ingresos: ing, gastos: gas, netoTotal: netoTotal, neto: netoTotal * pct / 100 };
     });
     var gananciaProyectos = proyectos.reduce(function (a, p) { return a + p.neto; }, 0);
 

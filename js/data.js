@@ -176,7 +176,7 @@
             gastos: [r({ desc: "Hosting y dominio", monto: 8200 }), r({ desc: "Plantilla premium", monto: 12400 })]
           },
           {
-            id: uid(), nombre: "Consultoría",
+            id: uid(), nombre: "Consultoría", pct: 50, /* proyecto con un socio: solo la mitad del neto es tuya */
             ingresos: [r({ desc: "Horas de asesoría", monto: 48000 })],
             gastos: [r({ desc: "Licencia de software", monto: 6000 })]
           }

@@ -385,6 +385,19 @@ td.col-del{width:30px;}
 .project-head input:hover{background:var(--field-hover);}
 .project-head input:focus{background:var(--field-focus); border-color:var(--accent); outline:none;}
 .project-neto{font-weight:750; font-size:1.02rem; white-space:nowrap; font-variant-numeric:tabular-nums;}
+
+/* reparto del proyecto: qué % del neto es tuyo, para proyectos compartidos con un socio */
+.project-split{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-2px 0 14px; font-size:.87rem; color:var(--ink-2);}
+.project-split label{white-space:nowrap;}
+.project-split input{
+  width:52px; text-align:right; border:1px solid var(--border-strong); background:var(--paper);
+  color:var(--ink); font:inherit; font-variant-numeric:tabular-nums; border-radius:7px; padding:5px 7px;
+}
+.project-split input:hover{background:var(--field-hover);}
+.project-split input:focus{background:var(--field-focus); border-color:var(--accent); outline:none;}
+.project-split-nota{color:var(--ink-3); font-size:.83rem;}
+.project-split-nota:empty{display:none;}
+
 .project-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:stretch;}
 /* que los pies de las dos tablas del proyecto queden alineados abajo */
 .project-grid > div{display:flex; flex-direction:column;}
