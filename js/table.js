@@ -103,6 +103,12 @@
           chk.checked = !!row[col.key];
           chk.setAttribute("aria-label", col.label + (row.desc ? ": " + row.desc : ""));
           if (col.title) chk.title = col.title;
+          /* las filas "auto" no tienen plata propia (toman el monto de otro lado):
+             no aplica marcarlas, así que la casilla queda deshabilitada */
+          if (col.key !== "fijo" && row.auto) {
+            chk.disabled = true;
+            chk.title = "No aplica: el monto de esta fila sale de Tarjetas";
+          }
           chk.addEventListener("change", function () {
             store.updateRow(cfg.list, row.id, col.key, chk.checked, cfg.proyectoId);
             BM.refreshDerived();

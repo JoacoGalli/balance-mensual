@@ -79,6 +79,21 @@ icons/            iconos PWA (192, 512, maskable)
   La vista Tarjetas muestra una sección por tarjeta, con dos tablas (pesos y dólares) filtradas
   por esa tarjeta vía `cfg.filtro` en `BM.table.render` — la lista real (`mes.tarjetaPesos`)
   sigue siendo una sola, el filtro es solo de qué se ve en cada tabla.
+- **Presupuesto por fila, no por lista** (`row.disfrute`, booleano): cada gasto de
+  `gastosFijos`/`gastosVariables` y cada consumo de `tarjetaPesos`/`tarjetaDolares`/
+  `tarjetasTerceros` se marca Fijo o Disfrute con una casilla propia, sin depender de en
+  qué lista vive la fila. `calc()` arma `realFijo`/`realDisfrute` sumando por esa marca
+  (usando "tu parte" en las tarjetas compartidas) y son los que alimentan las fuentes
+  `gastosFijos`/`gastosVariables` de `config.presupuesto` — reemplazan a `totalFijos`/
+  `totalVariables`, que siguen existiendo pero ahora son solo para "en qué lista está
+  cada cosa" (Resumen, la vista Gastos), no para Presupuesto. Las filas "auto" no se
+  cuentan acá (ya se cuentan a través de las filas de tarjeta que las originan).
+- **Ahorro e inversión acumulados**: `mesActual().ahorroAnterior`/`inversionAnterior`
+  siguen siendo editables a mano por mes (a diferencia de `balanceAnterior`, ahora
+  `crearMes()` los arrastra siempre, sin depender del checkbox de arrastrar balance).
+  `store.recalcularAcumulados()` (botón en Ajustes → Meses) recorre los meses en orden
+  y deja el "antes de este mes" de cada uno igual al final del anterior — para arreglar
+  cadenas cortadas, como los meses importados de un Excel que no tenía este campo.
 - **Vivienda**: `config.viviendaTipo` ("alquiler" | "hipotecario") solo cambia las etiquetas de la
   vista Balance ("Alquiler compartido"/"Hipoteca compartida", etc.); la lista `alquiler` (persona,
   monto, %) es la misma para los dos casos. Se cambia con dos botones en Ajustes → Vivienda.

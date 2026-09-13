@@ -385,8 +385,9 @@
     /* ahorros */
     var pAho = panel("Ahorros");
     pAho.appendChild(h("p", { class: "panel-note",
-      text: "Cargá lo que sumaste o sacaste este mes (podés poner un número negativo). El total de abajo arrastra solo de un mes al siguiente." }));
-    campoAcumulado(pAho, "ahorro-anterior", "Antes de este mes", store.mesActual().ahorroAnterior, store.setAhorroAnterior);
+      text: "Tres números: cuánto tenías al empezar el mes, cuánto sumaste o sacaste en el mes (podés poner un número negativo), " +
+        "y cuánto te queda al cierre — que es, a su vez, el punto de partida del mes que viene." }));
+    campoAcumulado(pAho, "ahorro-anterior", "Al empezar este mes", store.mesActual().ahorroAnterior, store.setAhorroAnterior);
     var mountAho = h("div");
     pAho.appendChild(mountAho);
     BM.table.render(mountAho, {
@@ -399,18 +400,17 @@
       template: { desc: "", monto: 0, moneda: "ARS" },
       addLabel: "+ Agregar movimiento",
       emptyText: "Sin movimientos este mes.",
-      totalId: "total-ahorros", totalLabel: "Sumaste este mes",
+      totalId: "total-ahorros", totalLabel: "Movimiento de este mes",
       totalFn: function () { return U.fmtARS(store.calc().totalAhorros); }
     });
     BM.calcs["ahorro-final"] = function () { return U.fmtARS(store.calc().ahorroFinal); };
-    pAho.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total ahorrado" }),
+    pAho.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Al cerrar este mes (→ pasa al mes que viene)" }),
       h("span", { class: "num", dataset: { calc: "ahorro-final" }, text: BM.calcs["ahorro-final"]() })]));
 
     /* inversiones */
     var pInv = panel("Inversiones");
-    pInv.appendChild(h("p", { class: "panel-note",
-      text: "Igual que Ahorros: cargá el movimiento de este mes, y el total acumulado arrastra solo." }));
-    campoAcumulado(pInv, "inversion-anterior", "Antes de este mes", store.mesActual().inversionAnterior, store.setInversionAnterior);
+    pInv.appendChild(h("p", { class: "panel-note", text: "Igual que Ahorros: al empezar el mes, el movimiento del mes, y al cerrarlo." }));
+    campoAcumulado(pInv, "inversion-anterior", "Al empezar este mes", store.mesActual().inversionAnterior, store.setInversionAnterior);
     var mountInv = h("div");
     pInv.appendChild(mountInv);
     BM.table.render(mountInv, {
@@ -423,11 +423,11 @@
       template: { desc: "", monto: 0, moneda: "ARS" },
       addLabel: "+ Agregar movimiento",
       emptyText: "Sin movimientos este mes.",
-      totalId: "total-inversiones", totalLabel: "Sumaste este mes",
+      totalId: "total-inversiones", totalLabel: "Movimiento de este mes",
       totalFn: function () { return U.fmtARS(store.calc().totalInversiones); }
     });
     BM.calcs["inversion-final"] = function () { return U.fmtARS(store.calc().inversionFinal); };
-    pInv.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total invertido" }),
+    pInv.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Al cerrar este mes (→ pasa al mes que viene)" }),
       h("span", { class: "num", dataset: { calc: "inversion-final" }, text: BM.calcs["inversion-final"]() })]));
 
     pIng.appendChild(h("p", { class: "panel-note", style: "margin:14px 0 0",
@@ -594,9 +594,10 @@
       list: tabGastos,
       columns: [
         { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "En qué se va" },
-        { key: "monto", label: "Monto", type: "money" }
+        { key: "monto", label: "Monto", type: "money" },
+        { key: "disfrute", label: "Disfrute", type: "check", title: "Para Presupuesto: tildado cuenta como disfrute, destildado como fijo" }
       ],
-      template: { desc: "", monto: 0 },
+      template: { desc: "", monto: 0, disfrute: !esFijos },
       addLabel: "+ Agregar gasto",
       emptyText: "Sin gastos cargados.",
       totalId: "total-" + tabGastos, totalLabel: esFijos ? "Total fijos" : "Total variables",
@@ -622,7 +623,7 @@
      VISTA: PRESUPUESTO
      ========================================================= */
   var FUENTES = [
-    ["gastosFijos", "Fijos"], ["gastosVariables", "Variables"],
+    ["gastosFijos", "Fijo"], ["gastosVariables", "Disfrute"],
     ["inversiones", "Inversiones"], ["ahorros", "Ahorros"]
   ];
 
@@ -636,7 +637,8 @@
 
     var pPlan = panel("Tu reparto");
     pPlan.appendChild(h("p", { class: "panel-note",
-      text: "Poné qué porcentaje de lo que entra va a cada parte y de dónde sale lo real. Vale para todos los meses." }));
+      text: "Poné qué porcentaje de lo que entra va a cada parte y de dónde sale lo real. Vale para todos los meses. " +
+        "“Fijo” y “Disfrute” se miden por cómo marcaste cada gasto y cada consumo de tarjeta, no por en qué lista lo cargaste." }));
     var mount = h("div");
     pPlan.appendChild(mount);
     BM.table.render(mount, {
@@ -718,14 +720,16 @@
     }
     var columnasFinales = [
       { key: "cuota", label: "Cuota", type: "cuota", placeholder: "—", width: "78px" },
-      { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" }
+      { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" },
+      { key: "disfrute", label: "Disfrute", type: "check", title: "Para Presupuesto: tildado cuenta como disfrute, destildado como fijo" }
     ];
 
     /* --- una sección por tarjeta propia, con sus consumos en pesos y en dólares --- */
     tarjetas.forEach(function (tarj) {
       var pTarj = panel(tarjetas.length > 1 ? tarj.nombre || "Sin nombre" : "Consumos de tarjeta");
       pTarj.appendChild(h("p", { class: "panel-note", text: "Cargá cada consumo con el monto de cada uno. En “Cuota” escribí por ejemplo 2/6. " +
-        "Tildá “Fijo” en lo que se repite todos los meses: al crear el mes siguiente se copia solo, igual que las cuotas." }));
+        "Tildá “Fijo” en lo que se repite todos los meses: al crear el mes siguiente se copia solo, igual que las cuotas. " +
+        "“Disfrute” es para Presupuesto: destildalo en lo que sea una necesidad, no un gusto." }));
 
       function colMoneda(lista, titulo, esUsd) {
         var col = h("div", {}, [h("h4", { text: titulo })]);
@@ -734,7 +738,7 @@
           list: lista,
           columns: [{ key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Consumo" }]
             .concat(columnasPersonas(esUsd)).concat(columnasFinales),
-          template: Object.assign({ desc: "", tarjeta: tarj.id, cuota: "", fijo: false }, templatePersonas()),
+          template: Object.assign({ desc: "", tarjeta: tarj.id, cuota: "", fijo: false, disfrute: true }, templatePersonas()),
           filtro: function (row) { return (row.tarjeta || tarjetas[0].id) === tarj.id; },
           addLabel: "+ Agregar consumo",
           emptyText: "Sin consumos.",
@@ -766,9 +770,10 @@
         { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Qué compraste" },
         { key: "monto", label: "Monto", type: "money" },
         { key: "cuota", label: "Cuota", type: "cuota", placeholder: "—", width: "78px" },
-        { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" }
+        { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" },
+        { key: "disfrute", label: "Disfrute", type: "check", title: "Para Presupuesto: tildado cuenta como disfrute, destildado como fijo" }
       ],
-      template: { desc: "", monto: 0, cuota: "", fijo: false },
+      template: { desc: "", monto: 0, cuota: "", fijo: false, disfrute: true },
       addLabel: "+ Agregar cuota",
       emptyText: "Sin cuotas de tarjetas de otros.",
       totalId: "total-terceros", totalLabel: "Total",
@@ -928,7 +933,8 @@
 
     var pMeses = panel("Meses");
     pMeses.appendChild(h("p", { class: "panel-note",
-      text: "Al crear un mes nuevo podés copiar los gastos fijos y arrastrar el balance final del mes actual." }));
+      text: "Al crear un mes nuevo podés copiar los gastos fijos y arrastrar el balance final del mes actual. " +
+        "El ahorro y la inversión acumulados siempre se arrastran solos." }));
     pMeses.appendChild(h("div", { class: "btn-row" }, [
       h("button", { class: "btn primary", text: "+ Nuevo mes", onclick: abrirDialogMes }),
       h("button", { class: "btn", text: "Borrar el mes actual", onclick: function () {
@@ -940,6 +946,16 @@
         toast("Borraste " + U.monthLabel(id), "Deshacer", function () {
           store.getState().meses[id] = copia; store.setMesActivo(id); renderTodo();
         });
+      } })
+    ]));
+    pMeses.appendChild(h("p", { class: "panel-note", style: "margin-top:14px",
+      text: "¿El ahorro o la inversión acumulados quedaron cortados entre un mes y el siguiente (por ejemplo, en meses importados de un Excel)? Esto los arregla: deja \"antes de este mes\" de cada mes igual al total con que cerró el anterior. El primer mes no se toca — ahí va el punto de partida." }));
+    pMeses.appendChild(h("div", { class: "btn-row" }, [
+      h("button", { class: "btn", text: "Recalcular ahorro e inversión acumulados", onclick: function () {
+        var copia = JSON.stringify(store.getState());
+        store.recalcularAcumulados();
+        renderTodo();
+        toast("Recalculado", "Deshacer", function () { store.importJSON(copia); renderTodo(); });
       } })
     ]));
 
@@ -1029,7 +1045,7 @@
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-estructura", checked: "checked" }),
         h("span", { text: "Copiar la lista de gastos variables y proyectos, en cero" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-balance", checked: "checked" }),
-        h("span", { text: "Arrastrar el balance, el ahorro y la inversión acumulados de este mes" })]),
+        h("span", { text: "Arrastrar el balance final de este mes" })]),
       h("div", { class: "dialog-actions" }, [
         h("button", { class: "btn ghost", text: "Cancelar", onclick: function () { dlg.close(); } }),
         h("button", { class: "btn primary", text: "Crear mes", onclick: function () {

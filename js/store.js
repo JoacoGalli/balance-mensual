@@ -50,6 +50,14 @@
       mes.ahorros.concat(mes.inversiones).forEach(function (row) {
         if (!row.moneda) row.moneda = "ARS";
       });
+      /* categoría de presupuesto (fijo/disfrute) por fila, en toda tabla de gastos.
+         Migración: lo que ya vivía en "gastos fijos" arranca como fijo; el resto
+         (variables, tarjetas, terceros) arranca como disfrute, que es como contaba
+         antes de que existiera esta marca. */
+      mes.gastosFijos.forEach(function (row) { if (row.disfrute === undefined) row.disfrute = false; });
+      mes.gastosVariables.concat(mes.tarjetaPesos, mes.tarjetaDolares, mes.tarjetasTerceros).forEach(function (row) {
+        if (row.disfrute === undefined) row.disfrute = true;
+      });
       if (typeof mes.ahorroAnterior !== "number") mes.ahorroAnterior = 0;
       if (typeof mes.inversionAnterior !== "number") mes.inversionAnterior = 0;
     });
@@ -283,8 +291,10 @@
       id: id,
       dolar: base ? base.dolar : 1000,
       balanceAnterior: opciones.arrastrarBalance && base ? calc(base).balanceFinal : 0,
-      ahorroAnterior: opciones.arrastrarBalance && base ? calc(base).ahorroFinal : 0,
-      inversionAnterior: opciones.arrastrarBalance && base ? calc(base).inversionFinal : 0,
+      /* el ahorro y la inversión acumulados siempre siguen del mes anterior: a diferencia
+         del balance, no tiene sentido "cortar" la cuenta al crear un mes nuevo */
+      ahorroAnterior: base ? calc(base).ahorroFinal : 0,
+      inversionAnterior: base ? calc(base).inversionFinal : 0,
       ingresos: [], ahorros: [], inversiones: [], proyectos: [],
       gastosFijos: [], gastosVariables: [],
       tarjetaPesos: [], tarjetaDolares: [], tarjetasTerceros: [], alquiler: []
@@ -356,6 +366,22 @@
     return true;
   }
 
+  /* Recorre los meses en orden y hace que el ahorro y la inversión "de antes de este mes"
+     de cada uno sea el acumulado final del mes anterior. Sirve para arreglar la cadena
+     cuando quedó cortada (ej. meses importados de un Excel que no tenía este dato) o
+     cuando se editó "antes de este mes" a mano en algún mes intermedio. El primero de
+     todos no se toca: ahí vive el punto de partida. */
+  function recalcularAcumulados() {
+    var ids = mesesOrdenados();
+    for (var i = 1; i < ids.length; i++) {
+      var anterior = calc(state.meses[ids[i - 1]]);
+      var actual = state.meses[ids[i]];
+      actual.ahorroAnterior = anterior.ahorroFinal;
+      actual.inversionAnterior = anterior.inversionFinal;
+    }
+    emit();
+  }
+
   /* ---------------- cálculos ---------------- */
 
   function calc(mes) {
@@ -414,6 +440,26 @@
     var totalVariables = (mes.gastosVariables || []).reduce(function (a, r) { return a + montoDeFila(r); }, 0);
     var totalGastos = totalFijos + totalVariables;
 
+    /* Presupuesto mide "fijo" vs "disfrute" por la marca de cada fila, no por en qué lista
+       vive: un gasto de la lista "fijos" puede marcarse disfrute, y viceversa. Las filas
+       "auto" se saltean acá porque su plata ya se cuenta desde las filas de tarjeta que
+       las originan (si no, se contaría dos veces). */
+    function categorizar(lista, montoDeLaFila) {
+      return (lista || []).reduce(function (acc, r) {
+        if (r.auto) return acc;
+        var m = montoDeLaFila ? montoDeLaFila(r) : (Number(r.monto) || 0);
+        if (r.disfrute) acc.disfrute += m; else acc.fijo += m;
+        return acc;
+      }, { fijo: 0, disfrute: 0 });
+    }
+    var catFijos = categorizar(mes.gastosFijos);
+    var catVariables = categorizar(mes.gastosVariables);
+    var catTarjPesos = categorizar(mes.tarjetaPesos, sumaFila);
+    var catTarjUsd = categorizar(mes.tarjetaDolares, sumaFila);
+    var catTerceros = categorizar(mes.tarjetasTerceros);
+    var realFijo = catFijos.fijo + catVariables.fijo + catTarjPesos.fijo + catTarjUsd.fijo * dolar + catTerceros.fijo;
+    var realDisfrute = catFijos.disfrute + catVariables.disfrute + catTarjPesos.disfrute + catTarjUsd.disfrute * dolar + catTerceros.disfrute;
+
     var proyectos = (mes.proyectos || []).map(function (p) {
       var ing = U.sum(p.ingresos, "monto");
       var gas = U.sum(p.gastos, "monto");
@@ -436,7 +482,7 @@
        Las partes de gastos son un tope (pasarse es malo); ahorro e inversión son una meta. */
     var baseReparto = totalIngresos + gananciaProyectos;
     var realPorFuente = {
-      gastosFijos: totalFijos, gastosVariables: totalVariables,
+      gastosFijos: realFijo, gastosVariables: realDisfrute,
       ahorros: totalAhorros, inversiones: totalInversiones
     };
     var presupuesto = ((state && state.config.presupuesto) || []).map(function (parte) {
@@ -518,7 +564,7 @@
     getList: getList, updateRow: updateRow, addRow: addRow, deleteRow: deleteRow,
     addProyecto: addProyecto, updateProyecto: updateProyecto, deleteProyecto: deleteProyecto,
     crearMes: crearMes, borrarMes: borrarMes,
-    calc: calc, historico: historico,
+    calc: calc, historico: historico, recalcularAcumulados: recalcularAcumulados,
     exportJSON: exportJSON, importJSON: importJSON, resetear: resetear
   };
 })(window);
