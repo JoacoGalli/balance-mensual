@@ -352,7 +352,8 @@ td.col-del{width:30px;}
 }
 .row-del:hover{color:var(--negative); background:var(--negative-soft);}
 .row-del:focus-visible{opacity:1;}
-@media (hover:none){ .row-del{opacity:.6;} }
+.row-del:disabled{cursor:default; opacity:.25 !important; background:none !important; color:var(--ink-3) !important;}
+@media (hover:none){ .row-del{opacity:.6;} .row-del:disabled{opacity:.2;} }
 
 .table-foot{
   display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;

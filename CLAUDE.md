@@ -76,11 +76,29 @@ icons/            iconos PWA (192, 512, maskable)
   monto de la **parte de la persona 1** (vos) en Tarjetas; la parte de la persona 2 la paga ella.
   Las de dólares se pesifican con el dólar del mes.
 - **Tarjetas**: `config.tarjetas` = `[{id, nombre}]`; cada consumo tiene `tarjeta` (id) y `fijo`.
+  La vista Tarjetas muestra una sección por tarjeta, con dos tablas (pesos y dólares) filtradas
+  por esa tarjeta vía `cfg.filtro` en `BM.table.render` — la lista real (`mes.tarjetaPesos`)
+  sigue siendo una sola, el filtro es solo de qué se ve en cada tabla.
+- **Tarjetas de otros** (`mes.tarjetasTerceros`): algo que se compró con la tarjeta de otra
+  persona y se le paga en cuotas; no se reparte (es todo tuyo). Misma forma que un gasto simple
+  (`desc, monto, cuota, fijo`); tiene su propio tipo de fila "auto" (`auto: "tarjetasTerceros"`).
+- **Ahorros e inversiones acumulados**: `mes.ahorroAnterior`/`mes.inversionAnterior` son el total
+  de antes de este mes (como `balanceAnterior`); las listas `ahorros`/`inversiones` son el
+  *movimiento* del mes (puede ser negativo). `calc().ahorroFinal`/`inversionFinal` = anterior +
+  movimiento. Al crear un mes con "arrastrar balance" también arrastran estos dos. Ojo:
+  **Presupuesto sigue comparando el movimiento del mes** (`totalAhorros`/`totalInversiones`)
+  contra el % de meta, no el acumulado — son cálculos distintos aunque compartan la lista.
 - **Mes nuevo** (`store.crearMes`): copia gastos fijos y alquiler con monto; de tarjeta copia los
   consumos `fijo` y las cuotas que siguen, avanzando la cuota ("5/9" → "6/9"; la última no pasa).
   Se muestran como solo lectura con un badge.
-- **Personas configurables**: se guardan como `p1`/`p2` en `config.personas`; las columnas de
-  tarjetas y el reparto usan esos nombres. No hay nombres hardcodeados en el código.
+- **Personas dinámicas**: `config.personas` es una lista `[{id, nombre}, ...]`, no hay tope de
+  dos. La primera de la lista es "vos": su parte de la tarjeta es la que cuenta como gasto tuyo
+  (`c.tuTarjetaPesos`/`tuTarjetaUsd` en `calc()`). Cada fila de tarjeta guarda el monto de cada
+  persona en un campo con su `id` como nombre (`row[persona.id]`); por eso las dos primeras
+  personas mantienen los ids fijos `"p1"`/`"p2"` en la migración, así los datos guardados antes
+  de esta lista siguen sirviendo sin tocar cada fila. `BM.table.render` arma esas columnas al
+  vuelo recorriendo `config.personas`. En Ajustes, "Personas" y "Tarjetas" son listas editables
+  con `minRows: 1` (nunca se puede borrar la última).
 - **`normalizar()` en store.js** completa lo que les falta a datos guardados con versiones
   anteriores (ej. `inversiones`, `config.presupuesto`). Todo campo nuevo del modelo pasa por ahí.
 - **La vista va en la URL** (`#presupuesto`), así recargar o compartir el link abre la misma vista.
@@ -126,6 +144,10 @@ Validado: los gastos totales de cada mes coinciden con los del Excel. Detalles:
   "Ajuste para cuadrar con el Excel".
 - Los ingresos "Free-lance" quedaron en un proyecto "Freelance"; Joaco los reparte entre sus
   proyectos reales.
+- Se generó **antes** de que existieran personas dinámicas, tarjetas de terceros y ahorro/inversión
+  acumulados: al importarlo, `ahorroAnterior`/`inversionAnterior` arrancan en 0 en todos los meses
+  (la migración no tiene de dónde sacar ese dato). Conviene poner el total real en el mes más
+  reciente después de importar.
 
 ## Próximos pasos
 

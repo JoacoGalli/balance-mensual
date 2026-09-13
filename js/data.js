@@ -88,14 +88,15 @@
       gastosFijos: [],
       gastosVariables: [
         { id: uid(), desc: "Resumen tarjeta (pesos)", monto: 0, auto: "tarjetaPesos" },
-        { id: uid(), desc: "Resumen tarjeta (dólares)", monto: 0, auto: "tarjetaDolares" }
+        { id: uid(), desc: "Resumen tarjeta (dólares)", monto: 0, auto: "tarjetaDolares" },
+        { id: uid(), desc: "Resumen tarjetas de otros", monto: 0, auto: "tarjetasTerceros" }
       ],
-      tarjetaPesos: [], tarjetaDolares: [], alquiler: []
+      tarjetaPesos: [], tarjetaDolares: [], tarjetasTerceros: [], alquiler: []
     };
     return {
       version: 1,
       config: {
-        personas: { p1: "Vos", p2: "Persona 2" },
+        personas: [{ id: "p1", nombre: "Vos" }],
         tarjetas: [{ id: "visa", nombre: "Visa" }],
         presupuesto: JSON.parse(JSON.stringify(BM.seed.config.presupuesto))
       },
@@ -113,7 +114,7 @@
   BM.seed = {
     version: 1,
     config: {
-      personas: { p1: "Ana", p2: "Martín" },
+      personas: [{ id: "p1", nombre: "Ana" }, { id: "p2", nombre: "Martín" }],
       /* Reparto ideal de lo que entra cada mes. fuente: de qué lista sale el monto real */
       tarjetas: [{ id: "visa", nombre: "Visa" }, { id: "master", nombre: "Mastercard" }],
       presupuesto: [
@@ -155,6 +156,8 @@
         id: "2026-08",
         dolar: 1526,
         balanceAnterior: 245300,
+        ahorroAnterior: 720000,
+        inversionAnterior: 410000,
         ingresos: [
           r({ fuente: "Sueldo", monto: 1800, moneda: "USD" })
         ],
@@ -192,6 +195,7 @@
         gastosVariables: [
           r({ desc: "Resumen tarjeta (pesos)", monto: 0, auto: "tarjetaPesos" }),
           r({ desc: "Resumen tarjeta (dólares)", monto: 0, auto: "tarjetaDolares" }),
+          r({ desc: "Resumen tarjetas de otros", monto: 0, auto: "tarjetasTerceros" }),
           r({ desc: "Supermercado", monto: 145300 }),
           r({ desc: "Gimnasio", monto: 42000 }),
           r({ desc: "Salidas", monto: 60000 })
@@ -207,6 +211,9 @@
           r({ desc: "Música", p1: 4.99, p2: 0, cuota: "", fijo: true }),
           r({ desc: "Almacenamiento en la nube", p1: 2.99, p2: 0, cuota: "", fijo: true }),
           r({ desc: "Curso online", p1: 15, p2: 0, cuota: "" })
+        ],
+        tarjetasTerceros: [
+          r({ desc: "Auriculares (tarjeta de Martín)", monto: 8500, cuota: "3/6", fijo: false })
         ],
         alquiler: [
           r({ persona: "Ana", monto: 200000, pct: 50 }),

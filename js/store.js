@@ -22,7 +22,14 @@
   /* Completa lo que les falta a datos guardados con versiones anteriores de la app */
   function normalizar(st) {
     st.config = st.config || {};
-    if (!st.config.personas) st.config.personas = { p1: "Persona 1", p2: "Persona 2" };
+    /* personas: antes era {p1,p2}; ahora es una lista, así se puede agregar más de dos.
+       Los ids "p1"/"p2" se mantienen para que las filas de tarjeta guardadas sigan sirviendo. */
+    if (!Array.isArray(st.config.personas)) {
+      var p = st.config.personas || { p1: "Persona 1", p2: "Persona 2" };
+      st.config.personas = [{ id: "p1", nombre: p.p1 || "Persona 1" }];
+      if (p.p2) st.config.personas.push({ id: "p2", nombre: p.p2 });
+    }
+    if (!st.config.personas.length) st.config.personas = [{ id: "p1", nombre: "Vos" }];
     if (!Array.isArray(st.config.presupuesto)) {
       st.config.presupuesto = JSON.parse(JSON.stringify(BM.seed.config.presupuesto));
     }
@@ -33,7 +40,7 @@
     Object.keys(st.meses).forEach(function (id) {
       var mes = st.meses[id];
       ["ingresos", "ahorros", "inversiones", "proyectos", "gastosFijos", "gastosVariables",
-       "tarjetaPesos", "tarjetaDolares", "alquiler"].forEach(function (lista) {
+       "tarjetaPesos", "tarjetaDolares", "tarjetasTerceros", "alquiler"].forEach(function (lista) {
         if (!Array.isArray(mes[lista])) mes[lista] = [];
       });
       mes.tarjetaPesos.concat(mes.tarjetaDolares).forEach(function (row) {
@@ -42,6 +49,8 @@
       mes.ahorros.concat(mes.inversiones).forEach(function (row) {
         if (!row.moneda) row.moneda = "ARS";
       });
+      if (typeof mes.ahorroAnterior !== "number") mes.ahorroAnterior = 0;
+      if (typeof mes.inversionAnterior !== "number") mes.inversionAnterior = 0;
     });
     if (!st.meses[st.mesActivo]) st.mesActivo = Object.keys(st.meses).sort().pop();
     return st;
@@ -185,20 +194,25 @@
     emit();
   }
 
-  function setPersona(slot, nombre) {
-    state.config.personas[slot] = nombre || (slot === "p1" ? "Persona 1" : "Persona 2");
+  function setAhorroAnterior(valor) {
+    mesActual().ahorroAnterior = valor || 0;
+    emit();
+  }
+
+  function setInversionAnterior(valor) {
+    mesActual().inversionAnterior = valor || 0;
     emit();
   }
 
   /* ---------------- CRUD de filas ----------------
      listName: "ingresos" | "ahorros" | "inversiones" | "gastosFijos" | "gastosVariables"
-               | "tarjetaPesos" | "tarjetaDolares" | "alquiler"
+               | "tarjetaPesos" | "tarjetaDolares" | "tarjetasTerceros" | "alquiler"
      Para proyectos: proyectoId + "ingresos" | "gastos"
-     "presupuesto" y "tarjetas" no dependen del mes: viven en config y valen para todos.
+     "presupuesto", "tarjetas" y "personas" no dependen del mes: viven en config y valen para todos.
   ------------------------------------------------- */
 
   function getList(listName, proyectoId) {
-    if (listName === "presupuesto" || listName === "tarjetas") return state.config[listName];
+    if (listName === "presupuesto" || listName === "tarjetas" || listName === "personas") return state.config[listName];
     var mes = mesActual();
     if (proyectoId) {
       var p = (mes.proyectos || []).find(function (x) { return x.id === proyectoId; });
@@ -225,6 +239,7 @@
 
   function deleteRow(listName, rowId, proyectoId) {
     var list = getList(listName, proyectoId);
+    if (listName === "personas" && list.length <= 1) return; /* siempre tiene que quedar al menos vos */
     var i = list.findIndex(function (x) { return x.id === rowId; });
     if (i !== -1) { list.splice(i, 1); emit(); }
   }
@@ -261,9 +276,11 @@
       id: id,
       dolar: base ? base.dolar : 1000,
       balanceAnterior: opciones.arrastrarBalance && base ? calc(base).balanceFinal : 0,
+      ahorroAnterior: opciones.arrastrarBalance && base ? calc(base).ahorroFinal : 0,
+      inversionAnterior: opciones.arrastrarBalance && base ? calc(base).inversionFinal : 0,
       ingresos: [], ahorros: [], inversiones: [], proyectos: [],
       gastosFijos: [], gastosVariables: [],
-      tarjetaPesos: [], tarjetaDolares: [], alquiler: []
+      tarjetaPesos: [], tarjetaDolares: [], tarjetasTerceros: [], alquiler: []
     };
 
     /* "3/6" -> "4/6"; null si la cuota ya era la última (o no es una cuota) */
@@ -305,6 +322,7 @@
     if (opciones.copiarTarjetas && base) {
       nuevo.tarjetaPesos = copiarTarjeta(base.tarjetaPesos);
       nuevo.tarjetaDolares = copiarTarjeta(base.tarjetaDolares);
+      nuevo.tarjetasTerceros = copiarTarjeta(base.tarjetasTerceros);
     }
     if (opciones.copiarIngresos && base) {
       nuevo.ingresos = copiar(base.ingresos, false);
@@ -346,18 +364,29 @@
 
     var totalIngresos = sumaEnPesos(mes.ingresos);
 
-    var tarjetaP1Pesos = U.sum(mes.tarjetaPesos, "p1");
-    var tarjetaP2Pesos = U.sum(mes.tarjetaPesos, "p2");
-    var tarjetaP1Usd = U.sum(mes.tarjetaDolares, "p1");
-    var tarjetaP2Usd = U.sum(mes.tarjetaDolares, "p2");
-    var totalTarjetaPesos = tarjetaP1Pesos + tarjetaP2Pesos;
-    var totalTarjetaDolares = tarjetaP1Usd + tarjetaP2Usd;
+    /* Personas: cada una tiene una columna en las tablas de tarjeta, con su id como
+       nombre de campo (row[persona.id]). La primera de la lista sos vos. */
+    var personasConfig = (state && state.config.personas) || [];
+    function sumaPersona(lista, personaId) { return U.sum(lista, personaId); }
+    function sumaFila(row) {
+      return personasConfig.reduce(function (a, p) { return a + (Number(row[p.id]) || 0); }, 0);
+    }
+    var porPersona = personasConfig.map(function (p) {
+      return { id: p.id, nombre: p.nombre, pesos: sumaPersona(mes.tarjetaPesos, p.id), usd: sumaPersona(mes.tarjetaDolares, p.id) };
+    });
+    var tuId = personasConfig[0] && personasConfig[0].id;
+    var tuTarjetaPesos = tuId ? sumaPersona(mes.tarjetaPesos, tuId) : 0;
+    var tuTarjetaUsd = tuId ? sumaPersona(mes.tarjetaDolares, tuId) : 0;
+    var totalTarjetaPesos = (mes.tarjetaPesos || []).reduce(function (a, r) { return a + sumaFila(r); }, 0);
+    var totalTarjetaDolares = (mes.tarjetaDolares || []).reduce(function (a, r) { return a + sumaFila(r); }, 0);
+    var totalTerceros = U.sum(mes.tarjetasTerceros, "monto");
 
-    /* Las filas marcadas con "auto" toman su valor de la tarjeta. Cuenta solo la parte
-       de la persona 1 (vos): la parte de la otra persona la paga ella. */
+    /* Las filas marcadas con "auto" toman su valor de la tarjeta. De tus tarjetas cuenta
+       solo tu parte: la de la otra persona la paga ella. Lo de terceros es todo tuyo. */
     function montoDeFila(row) {
-      if (row.auto === "tarjetaPesos") return tarjetaP1Pesos;
-      if (row.auto === "tarjetaDolares") return tarjetaP1Usd * dolar;
+      if (row.auto === "tarjetaPesos") return tuTarjetaPesos;
+      if (row.auto === "tarjetaDolares") return tuTarjetaUsd * dolar;
+      if (row.auto === "tarjetasTerceros") return totalTerceros;
       return Number(row.monto) || 0;
     }
 
@@ -368,8 +397,8 @@
       var usd = (mes.tarjetaDolares || []).filter(deEsta);
       return {
         id: t.id, nombre: t.nombre || ("Tarjeta " + (i + 1)),
-        pesos: U.sum(pesos, "p1") + U.sum(pesos, "p2"),
-        usd: U.sum(usd, "p1") + U.sum(usd, "p2")
+        pesos: pesos.reduce(function (a, r) { return a + sumaFila(r); }, 0),
+        usd: usd.reduce(function (a, r) { return a + sumaFila(r); }, 0)
       };
     });
 
@@ -386,6 +415,8 @@
 
     var totalAhorros = sumaEnPesos(mes.ahorros);
     var totalInversiones = sumaEnPesos(mes.inversiones);
+    var ahorroFinal = (Number(mes.ahorroAnterior) || 0) + totalAhorros;
+    var inversionFinal = (Number(mes.inversionAnterior) || 0) + totalInversiones;
     var balanceDelMes = totalIngresos + gananciaProyectos - totalGastos;
     var balanceFinal = (Number(mes.balanceAnterior) || 0) + balanceDelMes;
 
@@ -421,14 +452,16 @@
       gananciaProyectos: gananciaProyectos,
       totalAhorros: totalAhorros,
       totalInversiones: totalInversiones,
+      ahorroFinal: ahorroFinal,
+      inversionFinal: inversionFinal,
       baseReparto: baseReparto,
       presupuesto: presupuesto,
       pctPresupuesto: pctPresupuesto,
       balanceDelMes: balanceDelMes,
       balanceFinal: balanceFinal,
-      tarjetaP1Pesos: tarjetaP1Pesos, tarjetaP2Pesos: tarjetaP2Pesos,
-      tarjetaP1Usd: tarjetaP1Usd, tarjetaP2Usd: tarjetaP2Usd,
       totalTarjetaPesos: totalTarjetaPesos, totalTarjetaDolares: totalTarjetaDolares,
+      totalTerceros: totalTerceros,
+      porPersona: porPersona, tuTarjetaPesos: tuTarjetaPesos, tuTarjetaUsd: tuTarjetaUsd,
       porTarjeta: porTarjeta,
       montoDeFila: montoDeFila, enPesos: enPesos
     };
@@ -466,8 +499,9 @@
     load: load, subscribe: subscribe, emit: emit, getState: getState,
     abrirUsuario: abrirUsuario, cerrarUsuario: cerrarUsuario, sincronizar: sincronizar, subir: subir, getSync: getSync,
     mesActual: mesActual, mesesOrdenados: mesesOrdenados, setMesActivo: setMesActivo,
-    personas: personas, setPersona: setPersona,
+    personas: personas,
     setDolar: setDolar, setBalanceAnterior: setBalanceAnterior,
+    setAhorroAnterior: setAhorroAnterior, setInversionAnterior: setInversionAnterior,
     getList: getList, updateRow: updateRow, addRow: addRow, deleteRow: deleteRow,
     addProyecto: addProyecto, updateProyecto: updateProyecto, deleteProyecto: deleteProyecto,
     crearMes: crearMes, borrarMes: borrarMes,

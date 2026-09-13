@@ -254,10 +254,16 @@
 
     /* --- cuotas --- */
     var pCuotas = panel("Cuotas en curso");
+    var personasResumen = store.getState().config.personas || [];
+    function totalPersonas(row) {
+      return personasResumen.reduce(function (a, p) { return a + (Number(row[p.id]) || 0); }, 0);
+    }
     var conCuota = (mes.tarjetaPesos || []).filter(function (t) { return t.cuota; })
-      .map(function (t) { return { desc: t.desc, cuota: t.cuota, monto: (Number(t.p1) || 0) + (Number(t.p2) || 0), moneda: "ARS" }; })
+      .map(function (t) { return { desc: t.desc, cuota: t.cuota, monto: totalPersonas(t), moneda: "ARS" }; })
       .concat((mes.tarjetaDolares || []).filter(function (t) { return t.cuota; })
-        .map(function (t) { return { desc: t.desc, cuota: t.cuota, monto: (Number(t.p1) || 0) + (Number(t.p2) || 0), moneda: "USD" }; }));
+        .map(function (t) { return { desc: t.desc, cuota: t.cuota, monto: totalPersonas(t), moneda: "USD" }; }))
+      .concat((mes.tarjetasTerceros || []).filter(function (t) { return t.cuota; })
+        .map(function (t) { return { desc: t.desc, cuota: t.cuota, monto: Number(t.monto) || 0, moneda: "ARS" }; }));
 
     if (!conCuota.length) {
       pCuotas.appendChild(h("p", { class: "panel-note", text: "No tenés cuotas marcadas este mes." }));
@@ -367,8 +373,20 @@
       totalFn: function () { return U.fmtARS(store.calc().totalIngresos); }
     });
 
+    /* Campo de "antes de este mes" + total acumulado, reutilizado para ahorros e inversiones */
+    function campoAcumulado(panelDestino, id, label, valor, onInput) {
+      var inp = h("input", { type: "text", inputmode: "decimal", id: id, value: U.fmtNum(valor, 0) });
+      inp.addEventListener("focus", function () { inp.value = String(valor || ""); inp.select(); });
+      inp.addEventListener("input", function () { onInput(U.parseNum(inp.value)); BM.refreshDerived(); });
+      inp.addEventListener("blur", function () { inp.value = U.fmtNum(valor, 0); });
+      panelDestino.appendChild(h("div", { class: "field-row" }, [h("label", { for: id, text: label }), inp]));
+    }
+
     /* ahorros */
     var pAho = panel("Ahorros");
+    pAho.appendChild(h("p", { class: "panel-note",
+      text: "Cargá lo que sumaste o sacaste este mes (podés poner un número negativo). El total de abajo arrastra solo de un mes al siguiente." }));
+    campoAcumulado(pAho, "ahorro-anterior", "Antes de este mes", store.mesActual().ahorroAnterior, store.setAhorroAnterior);
     var mountAho = h("div");
     pAho.appendChild(mountAho);
     BM.table.render(mountAho, {
@@ -379,14 +397,20 @@
         { key: "moneda", label: "Moneda", type: "moneda", width: "86px" }
       ],
       template: { desc: "", monto: 0, moneda: "ARS" },
-      addLabel: "+ Agregar ahorro",
-      emptyText: "Sin ahorros cargados este mes.",
-      totalId: "total-ahorros", totalLabel: "Total en pesos",
+      addLabel: "+ Agregar movimiento",
+      emptyText: "Sin movimientos este mes.",
+      totalId: "total-ahorros", totalLabel: "Sumaste este mes",
       totalFn: function () { return U.fmtARS(store.calc().totalAhorros); }
     });
+    BM.calcs["ahorro-final"] = function () { return U.fmtARS(store.calc().ahorroFinal); };
+    pAho.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total ahorrado" }),
+      h("span", { class: "num", dataset: { calc: "ahorro-final" }, text: BM.calcs["ahorro-final"]() })]));
 
     /* inversiones */
     var pInv = panel("Inversiones");
+    pInv.appendChild(h("p", { class: "panel-note",
+      text: "Igual que Ahorros: cargá el movimiento de este mes, y el total acumulado arrastra solo." }));
+    campoAcumulado(pInv, "inversion-anterior", "Antes de este mes", store.mesActual().inversionAnterior, store.setInversionAnterior);
     var mountInv = h("div");
     pInv.appendChild(mountInv);
     BM.table.render(mountInv, {
@@ -397,11 +421,14 @@
         { key: "moneda", label: "Moneda", type: "moneda", width: "86px" }
       ],
       template: { desc: "", monto: 0, moneda: "ARS" },
-      addLabel: "+ Agregar inversión",
-      emptyText: "Sin inversiones cargadas este mes.",
-      totalId: "total-inversiones", totalLabel: "Total en pesos",
+      addLabel: "+ Agregar movimiento",
+      emptyText: "Sin movimientos este mes.",
+      totalId: "total-inversiones", totalLabel: "Sumaste este mes",
       totalFn: function () { return U.fmtARS(store.calc().totalInversiones); }
     });
+    BM.calcs["inversion-final"] = function () { return U.fmtARS(store.calc().inversionFinal); };
+    pInv.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total invertido" }),
+      h("span", { class: "num", dataset: { calc: "inversion-final" }, text: BM.calcs["inversion-final"]() })]));
 
     pIng.appendChild(h("p", { class: "panel-note", style: "margin:14px 0 0",
       text: "Lo que cobrás por proyectos freelance se carga aparte, en Freelance." }));
@@ -644,82 +671,118 @@
   /* =========================================================
      VISTA: TARJETAS
      ========================================================= */
-  var tabTarjeta = "tarjetaPesos";
-
   function renderTarjetas() {
     var cont = document.getElementById("view-tarjetas");
     cont.innerHTML = "";
     cont.appendChild(encabezado(vista("tarjetas")));
 
-    var tabs = h("div", { class: "tabs" });
-    [["tarjetaPesos", "Pesos"], ["tarjetaDolares", "Dólares"]].forEach(function (t) {
-      tabs.appendChild(h("button", {
-        class: "tab" + (tabTarjeta === t[0] ? " active" : ""), text: t[1],
-        onclick: function () { tabTarjeta = t[0]; renderTarjetas(); }
-      }));
-    });
-    cont.appendChild(tabs);
-
-    var esPesos = tabTarjeta === "tarjetaPesos";
-    var per = store.personas();
+    var personas = store.getState().config.personas;
     var tarjetas = store.getState().config.tarjetas;
-    var p = panel(esPesos ? "Consumos en pesos" : "Consumos en dólares");
-    p.appendChild(h("p", { class: "panel-note", text: "Cargá cada consumo con el monto de cada uno. En “Cuota” escribí por ejemplo 2/6. " +
-      "Tildá “Fijo” en lo que se repite todos los meses: al crear el mes siguiente se copia solo, igual que las cuotas." }));
 
-    var columnas = [{ key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Consumo" }];
-    if (tarjetas.length > 1) {
-      columnas.push({ key: "tarjeta", label: "Tarjeta", type: "opciones",
-        options: function () { return store.getState().config.tarjetas.map(function (t) { return [t.id, t.nombre || "Sin nombre"]; }); } });
+    /* una columna de monto por persona, con su nombre como rótulo */
+    function columnasPersonas(esUsd) {
+      return personas.map(function (per) { return { key: per.id, label: per.nombre || "Sin nombre", type: esUsd ? "usd" : "money" }; });
     }
-    columnas.push(
-      { key: "p1", label: per.p1, type: esPesos ? "money" : "usd" },
-      { key: "p2", label: per.p2, type: esPesos ? "money" : "usd" },
+    function templatePersonas() {
+      var t = {};
+      personas.forEach(function (per) { t[per.id] = 0; });
+      return t;
+    }
+    var columnasFinales = [
       { key: "cuota", label: "Cuota", type: "cuota", placeholder: "—", width: "78px" },
       { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" }
-    );
+    ];
 
-    var mount = h("div");
-    p.appendChild(mount);
-    BM.table.render(mount, {
-      list: tabTarjeta,
-      columns: columnas,
-      template: { desc: "", tarjeta: tarjetas[0] ? tarjetas[0].id : "", p1: 0, p2: 0, cuota: "", fijo: false },
-      addLabel: "+ Agregar consumo",
-      emptyText: "Sin consumos cargados.",
-      totalId: "total-" + tabTarjeta, totalLabel: "Total",
-      totalFn: function () {
-        var c = store.calc();
-        return esPesos ? U.fmtARS(c.totalTarjetaPesos) : U.fmtUSD(c.totalTarjetaDolares);
+    /* --- una sección por tarjeta propia, con sus consumos en pesos y en dólares --- */
+    tarjetas.forEach(function (tarj) {
+      var pTarj = panel(tarjetas.length > 1 ? tarj.nombre || "Sin nombre" : "Consumos de tarjeta");
+      pTarj.appendChild(h("p", { class: "panel-note", text: "Cargá cada consumo con el monto de cada uno. En “Cuota” escribí por ejemplo 2/6. " +
+        "Tildá “Fijo” en lo que se repite todos los meses: al crear el mes siguiente se copia solo, igual que las cuotas." }));
+
+      function colMoneda(lista, titulo, esUsd) {
+        var col = h("div", {}, [h("h4", { text: titulo })]);
+        var mount = h("div"); col.appendChild(mount);
+        BM.table.render(mount, {
+          list: lista,
+          columns: [{ key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Consumo" }]
+            .concat(columnasPersonas(esUsd)).concat(columnasFinales),
+          template: Object.assign({ desc: "", tarjeta: tarj.id, cuota: "", fijo: false }, templatePersonas()),
+          filtro: function (row) { return (row.tarjeta || tarjetas[0].id) === tarj.id; },
+          addLabel: "+ Agregar consumo",
+          emptyText: "Sin consumos.",
+          totalId: "tar-" + tarj.id + (esUsd ? "-usd" : "-ars"), totalLabel: "Total",
+          totalFn: function () {
+            var f = store.calc().porTarjeta.find(function (x) { return x.id === tarj.id; });
+            return esUsd ? U.fmtUSD(f ? f.usd : 0) : U.fmtARS(f ? f.pesos : 0);
+          }
+        });
+        return col;
       }
-    });
-    cont.appendChild(p);
 
+      pTarj.appendChild(h("div", { class: "project-grid" }, [
+        colMoneda("tarjetaPesos", "Pesos", false),
+        colMoneda("tarjetaDolares", "Dólares", true)
+      ]));
+      cont.appendChild(pTarj);
+    });
+
+    /* --- tarjetas de otros: cuotas que le pagás a alguien por algo que compró con su tarjeta --- */
+    var pTerceros = panel("Tarjetas de otros");
+    pTerceros.appendChild(h("p", { class: "panel-note",
+      text: "Algo que compraste con la tarjeta de otra persona y le pagás en cuotas, aparte de tus propias tarjetas." }));
+    var mountTerceros = h("div");
+    pTerceros.appendChild(mountTerceros);
+    BM.table.render(mountTerceros, {
+      list: "tarjetasTerceros",
+      columns: [
+        { key: "desc", label: "Descripción", type: "text", align: "left", placeholder: "Qué compraste" },
+        { key: "monto", label: "Monto", type: "money" },
+        { key: "cuota", label: "Cuota", type: "cuota", placeholder: "—", width: "78px" },
+        { key: "fijo", label: "Fijo", type: "check", title: "Se repite todos los meses" }
+      ],
+      template: { desc: "", monto: 0, cuota: "", fijo: false },
+      addLabel: "+ Agregar cuota",
+      emptyText: "Sin cuotas de tarjetas de otros.",
+      totalId: "total-terceros", totalLabel: "Total",
+      totalFn: function () { return U.fmtARS(store.calc().totalTerceros); }
+    });
+    cont.appendChild(pTerceros);
+
+    /* --- resumen: cómo se reparte entre las personas, y el total por tarjeta --- */
     var pTot = panel("Cómo se reparte");
-    var fmt = esPesos ? U.fmtARS : U.fmtUSD;
-    BM.calcs["tar-p1"] = function () { var c = store.calc(); return fmt(esPesos ? c.tarjetaP1Pesos : c.tarjetaP1Usd); };
-    BM.calcs["tar-p2"] = function () { var c = store.calc(); return fmt(esPesos ? c.tarjetaP2Pesos : c.tarjetaP2Usd); };
-    BM.calcs["tar-total"] = function () { var c = store.calc(); return fmt(esPesos ? c.totalTarjetaPesos : c.totalTarjetaDolares); };
-    pTot.appendChild(h("div", { class: "line-item" }, [h("span", { text: per.p1 + " (cuenta como gasto tuyo)" }), h("span", { class: "num amt", dataset: { calc: "tar-p1" } })]));
-    pTot.appendChild(h("div", { class: "line-item" }, [h("span", { text: per.p2 }), h("span", { class: "num amt", dataset: { calc: "tar-p2" } })]));
-    pTot.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total de los consumos" }), h("span", { class: "num", dataset: { calc: "tar-total" } })]));
+    personas.forEach(function (per, i) {
+      var calcId = "tar-persona-" + per.id;
+      BM.calcs[calcId] = function () {
+        var f = store.calc().porPersona.find(function (x) { return x.id === per.id; });
+        if (!f) return U.fmtARS(0);
+        return U.fmtARS(f.pesos) + (f.usd ? " + " + U.fmtUSD(f.usd) : "");
+      };
+      pTot.appendChild(h("div", { class: "line-item" }, [
+        h("span", { text: (per.nombre || "Sin nombre") + (i === 0 ? " (cuenta como gasto tuyo)" : "") }),
+        h("span", { class: "num amt", dataset: { calc: calcId } })
+      ]));
+    });
+    BM.calcs["tar-total"] = function () {
+      var c = store.calc();
+      return U.fmtARS(c.totalTarjetaPesos) + (c.totalTarjetaDolares ? " + " + U.fmtUSD(c.totalTarjetaDolares) : "");
+    };
+    pTot.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total de tus tarjetas" }), h("span", { class: "num", dataset: { calc: "tar-total" } })]));
+    pTot.appendChild(h("p", { class: "panel-note", style: "margin-top:12px",
+      text: "En Gastos podés tener filas “auto” que traen tu parte de las tarjetas y el total de Tarjetas de otros." }));
 
     var pPorTarjeta = null;
     if (tarjetas.length > 1) {
-      pPorTarjeta = panel("Por tarjeta");
+      pPorTarjeta = panel("Total por tarjeta");
       tarjetas.forEach(function (t) {
-        var calcId = "tar-" + t.id;
+        var calcId = "tar-total-" + t.id;
         BM.calcs[calcId] = function () {
           var f = store.calc().porTarjeta.find(function (x) { return x.id === t.id; });
-          return fmt(f ? (esPesos ? f.pesos : f.usd) : 0);
+          if (!f) return U.fmtARS(0);
+          return U.fmtARS(f.pesos) + (f.usd ? " + " + U.fmtUSD(f.usd) : "");
         };
         pPorTarjeta.appendChild(h("div", { class: "line-item" }, [h("span", { text: t.nombre || "Sin nombre" }),
           h("span", { class: "num amt", dataset: { calc: calcId } })]));
       });
-    }
-    if (!esPesos) {
-      pTot.appendChild(h("p", { class: "panel-note", style: "margin-top:12px",
-        text: "En Gastos podés tener una fila “auto” que pesifica tu parte con el dólar del mes." }));
     }
     cont.appendChild(h("div", { class: "panels" }, [h("div", {}, [pTot]), h("div", {}, [pPorTarjeta])]));
   }
@@ -786,31 +849,36 @@
     cont.innerHTML = "";
     cont.appendChild(encabezado(vista("ajustes")));
 
-    var per = store.personas();
-
     var pPersonas = panel("Personas");
-    pPersonas.appendChild(h("p", { class: "panel-note", text: "Los nombres de las columnas de tarjetas. La persona 1 sos vos: su parte de la tarjeta cuenta como gasto tuyo." }));
-    ["p1", "p2"].forEach(function (slot, i) {
-      var inp = h("input", { type: "text", value: per[slot], id: "persona-" + slot });
-      inp.addEventListener("input", function () { store.setPersona(slot, inp.value); });
-      inp.addEventListener("blur", function () { renderTarjetas(); });
-      pPersonas.appendChild(h("div", { class: "field-row" }, [
-        h("label", { for: "persona-" + slot, text: i === 0 ? "Persona 1 (vos)" : "Persona 2" }), inp
-      ]));
+    pPersonas.appendChild(h("p", { class: "panel-note",
+      text: "Cada una tiene su columna en Tarjetas, para cargar cuánto puso cada quien. La primera de la lista sos vos: tu parte cuenta como gasto tuyo." }));
+    var mountPer = h("div");
+    pPersonas.appendChild(mountPer);
+    BM.table.render(mountPer, {
+      list: "personas",
+      columns: [{ key: "nombre", label: "Nombre", type: "text", align: "left", placeholder: "Nombre" }],
+      template: { nombre: "" },
+      minRows: 1,
+      addLabel: "+ Agregar persona",
+      emptyText: "Agregá al menos una persona."
     });
+    mountPer.addEventListener("focusout", function () { renderTarjetas(); });
+    mountPer.addEventListener("click", function () { renderTarjetas(); });
 
     var pTarjetas = panel("Tarjetas");
-    pTarjetas.appendChild(h("p", { class: "panel-note", text: "Si tenés más de una, cada consumo dice de qué tarjeta es y ves el total de cada una." }));
+    pTarjetas.appendChild(h("p", { class: "panel-note", text: "Cada una tiene su propia sección en Tarjetas, con sus consumos en pesos y en dólares." }));
     var mountTar = h("div");
     pTarjetas.appendChild(mountTar);
     BM.table.render(mountTar, {
       list: "tarjetas",
       columns: [{ key: "nombre", label: "Nombre", type: "text", align: "left", placeholder: "Visa, Mastercard…" }],
       template: { nombre: "" },
+      minRows: 1,
       addLabel: "+ Agregar tarjeta",
       emptyText: "Agregá al menos una tarjeta."
     });
     mountTar.addEventListener("focusout", function () { renderTarjetas(); });
+    mountTar.addEventListener("click", function () { renderTarjetas(); });
 
     var pMeses = panel("Meses");
     pMeses.appendChild(h("p", { class: "panel-note",
@@ -909,13 +977,13 @@
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-fijos", checked: "checked" }),
         h("span", { text: "Copiar gastos fijos y alquiler (con sus montos)" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-tarjetas", checked: "checked" }),
-        h("span", { text: "Copiar de la tarjeta los consumos fijos y las cuotas que siguen (avanzando la cuota)" })]),
+        h("span", { text: "Copiar los consumos fijos de tarjeta (propia y de otros) y las cuotas que siguen (avanzando la cuota)" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-ingresos", checked: "checked" }),
         h("span", { text: "Copiar los ingresos" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-estructura", checked: "checked" }),
         h("span", { text: "Copiar la lista de gastos variables y proyectos, en cero" })]),
       h("label", { class: "check-row" }, [h("input", { type: "checkbox", id: "nm-balance", checked: "checked" }),
-        h("span", { text: "Arrastrar el balance final de este mes" })]),
+        h("span", { text: "Arrastrar el balance, el ahorro y la inversión acumulados de este mes" })]),
       h("div", { class: "dialog-actions" }, [
         h("button", { class: "btn ghost", text: "Cancelar", onclick: function () { dlg.close(); } }),
         h("button", { class: "btn primary", text: "Crear mes", onclick: function () {

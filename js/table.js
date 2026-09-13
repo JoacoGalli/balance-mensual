@@ -43,6 +43,9 @@
     mount.innerHTML = "";
 
     var rows = store.getList(cfg.list, cfg.proyectoId);
+    if (cfg.filtro) rows = rows.filter(cfg.filtro);
+    /* algunas listas necesitan que siempre quede al menos una fila (ej. personas) */
+    var puedeBorrar = !cfg.minRows || rows.length > cfg.minRows;
     var scroll = el("div", "table-scroll");
     var table = el("table", "etable");
 
@@ -197,6 +200,8 @@
       del.type = "button";
       del.title = "Borrar fila";
       del.setAttribute("aria-label", "Borrar fila");
+      del.disabled = !puedeBorrar;
+      if (!puedeBorrar) del.title = "Tiene que quedar al menos una fila";
       del.addEventListener("click", function () {
         var lista = store.getList(cfg.list, cfg.proyectoId);
         var indice = lista.findIndex(function (x) { return x.id === row.id; });
