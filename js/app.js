@@ -294,9 +294,22 @@
       ]));
     }
 
+    /* --- ahorrado hasta ahora: ahorros + inversiones, en pesos y su equivalente en dólares --- */
+    var pAhorro = panel("Ahorrado hasta ahora");
+    function dual(pesos) {
+      return U.fmtARS(pesos) + (c.dolar ? " · " + U.fmtUSD(pesos / c.dolar) : "");
+    }
+    pAhorro.appendChild(h("div", { class: "line-item" }, [h("span", { text: "Ahorros" }), h("span", { class: "num amt", text: dual(c.ahorroFinal) })]));
+    pAhorro.appendChild(h("div", { class: "line-item" }, [h("span", { text: "Inversiones" }), h("span", { class: "num amt", text: dual(c.inversionFinal) })]));
+    pAhorro.appendChild(h("div", { class: "total-row" }, [h("span", { text: "Total" }), h("span", { class: "num", text: dual(c.ahorroFinal + c.inversionFinal) })]));
+    if (!c.dolar) {
+      pAhorro.appendChild(h("p", { class: "panel-note", style: "margin-top:10px",
+        text: "Cargá el dólar del mes (arriba, en el costado) para ver también el equivalente en dólares." }));
+    }
+
     cont.appendChild(h("div", { class: "panels" }, [
       h("div", {}, [pChart, pSplit]),
-      h("div", {}, [pCuotas, pProy])
+      h("div", {}, [pCuotas, pProy, pAhorro])
     ]));
 
     dibujarChart();
