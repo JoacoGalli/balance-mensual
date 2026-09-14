@@ -30,13 +30,77 @@
     return raw === undefined || raw === null ? "" : String(raw);
   }
 
+  function esNumerica(col) {
+    return col.type === "money" || col.type === "usd" || col.type === "pct";
+  }
+
+  /* Al editar una celda numérica se ve la cuenta ("=20+23"), no el resultado —
+     como en una planilla de cálculo. */
   function valorEdicion(row, col) {
+    if (esNumerica(col) && row[col.key + "Formula"]) return row[col.key + "Formula"];
     var raw = row[col.key];
-    if (col.type === "money" || col.type === "usd" || col.type === "pct") {
+    if (esNumerica(col)) {
       if (!raw) return "";
       return String(raw).replace(".", ",");
     }
     return raw === undefined || raw === null ? "" : String(raw);
+  }
+
+  /* Calculadora de 4 operaciones para las celdas numéricas: "=20+23" -> 43.
+     Sin eval ni Function: un parser chico que solo entiende +, -, *, /, paréntesis
+     y números con coma o punto decimal. */
+  function evaluarFormula(expr) {
+    var i = 0;
+    function saltarEspacios() { while (expr[i] === " ") i++; }
+    function numero() {
+      saltarEspacios();
+      var inicio = i;
+      while (i < expr.length && /[0-9.,]/.test(expr[i])) i++;
+      if (i === inicio) throw new Error("número esperado");
+      var texto = expr.slice(inicio, i).replace(",", ".");
+      var n = parseFloat(texto);
+      if (isNaN(n)) throw new Error("número inválido");
+      return n;
+    }
+    function factor() {
+      saltarEspacios();
+      if (expr[i] === "(") {
+        i++;
+        var v = expresion();
+        saltarEspacios();
+        if (expr[i] !== ")") throw new Error("falta un paréntesis");
+        i++;
+        return v;
+      }
+      if (expr[i] === "-") { i++; return -factor(); }
+      if (expr[i] === "+") { i++; return factor(); }
+      return numero();
+    }
+    function termino() {
+      var v = factor();
+      for (;;) {
+        saltarEspacios();
+        if (expr[i] === "*") { i++; v *= factor(); }
+        else if (expr[i] === "/") { i++; v /= factor(); }
+        else break;
+      }
+      return v;
+    }
+    function expresion() {
+      var v = termino();
+      for (;;) {
+        saltarEspacios();
+        if (expr[i] === "+") { i++; v += termino(); }
+        else if (expr[i] === "-") { i++; v -= termino(); }
+        else break;
+      }
+      return v;
+    }
+    var resultado = expresion();
+    saltarEspacios();
+    if (i !== expr.length) throw new Error("sobran caracteres");
+    if (!isFinite(resultado)) throw new Error("resultado inválido");
+    return Math.round(resultado * 1e6) / 1e6;
   }
 
   function render(mount, cfg) {
@@ -159,18 +223,43 @@
         if (!esAuto) {
           input.addEventListener("focus", function () {
             input.value = valorEdicion(row, col);
-            input.select();
+            /* con una cuenta cargada, el cursor va al final para poder seguir sumando
+               ("=20+23" -> "=20+23+10"); si no, se selecciona todo para reemplazar rápido */
+            if (esNumerica(col) && row[col.key + "Formula"]) {
+              var largo = input.value.length;
+              input.setSelectionRange(largo, largo);
+            } else {
+              input.select();
+            }
           });
 
           input.addEventListener("input", function () {
-            var v = (col.type === "money" || col.type === "usd" || col.type === "pct")
-              ? U.parseNum(input.value)
-              : input.value;
+            if (esNumerica(col) && input.value.trim().charAt(0) === "=") {
+              return; /* cuenta a medio escribir: se resuelve recién al confirmar */
+            }
+            var v = esNumerica(col) ? U.parseNum(input.value) : input.value;
             store.updateRow(cfg.list, row.id, col.key, v, cfg.proyectoId);
             BM.refreshDerived();
           });
 
           input.addEventListener("blur", function () {
+            if (esNumerica(col)) {
+              var texto = input.value.trim();
+              if (texto.charAt(0) === "=") {
+                try {
+                  row[col.key] = evaluarFormula(texto.slice(1));
+                  row[col.key + "Formula"] = texto;
+                } catch (e) {
+                  if (BM.ui && BM.ui.toast) BM.ui.toast("Esa cuenta no se entiende: “" + texto + "”");
+                  /* se queda como estaba: no tocamos row[col.key] */
+                }
+              } else {
+                row[col.key] = U.parseNum(texto);
+                delete row[col.key + "Formula"];
+              }
+              store.emit();
+              BM.refreshDerived();
+            }
             input.value = valorMostrado(row, col, cfg);
           });
 

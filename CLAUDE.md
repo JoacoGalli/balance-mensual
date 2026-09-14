@@ -67,6 +67,15 @@ icons/            iconos PWA (192, 512, maskable)
 - **Todas las tablas son el mismo componente** (`BM.table.render(mount, cfg)`): columnas
   declarativas con `type` (`text`, `money`, `usd`, `pct`, `cuota`, `moneda`, `opciones`, `check`, `calc`),
   edición in-place, agregar fila con Enter en la última, borrar con undo.
+- **Cuentas tipo Excel en las celdas numéricas** (`money`/`usd`/`pct`): escribir `=20+23`
+  y confirmar (Enter o salir del campo) guarda el resultado (43) en el campo real y la
+  cuenta en `row[col.key + "Formula"]` (ej. `montoFormula`), que es lo único nuevo — el
+  resto de la app sigue leyendo `row[col.key]`, un número plano, sin saber que hay una
+  fórmula atrás. Al reabrir la celda se ve la cuenta de nuevo (cursor al final, para poder
+  seguir sumando), no el resultado. `BM.table`'s `evaluarFormula()` es un parser propio de
+  4 operaciones y paréntesis (sin `eval`/`Function`); una cuenta inválida no rompe el valor
+  anterior y avisa por toast. Mientras se escribe una cuenta (empieza con "="), no se
+  actualiza el store en cada tecla — recién al confirmar, como en una planilla real.
 - **Los cálculos viven en un solo lugar**: `store.calc()` devuelve todos los totales del mes.
   Nada de totales calculados a mano en las vistas.
 - **Re-render selectivo**: al tipear en un input NO se vuelve a dibujar la tabla (se perdería
